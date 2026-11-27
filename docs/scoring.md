@@ -1,0 +1,68 @@
+# Scoring
+
+All of this lives in `packages/core/src/score.ts` and is covered by tests.
+
+## Flow Signal (0 to 100)
+
+Three parts, each mapped to 0..1, weighted and scaled to 100:
+
+| Part              | Weight | What it measures                                                                  |
+| ----------------- | ------ | --------------------------------------------------------------------------------- |
+| Recent clear rate | 50%    | Share of games over the line in the last 5, 8 and 10 (weighted .5 / .3 / .2)      |
+| Lift              | 25%    | Last-10 average against the season average, in standard deviations (capped at ±2) |
+| Cushion           | 25%    | Last-5 average against the line, in standard deviations (capped at ±2)            |
+
+That gives the **form signal**. The Flow Signal on the board then blends in Flow's own chance the play hits
+(the form rate below, or the matchup model for team markets): 60% form signal + 40% model points, where a 50%
+chance is 50 points, 65% is 75 and 80% or more is 100. A hot streak that the model rates as a coin flip can no
+longer reach the top of the board. Neither part uses the price. With no model chance, the signal is form alone.
+
+Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
+
+## Bet value
+
+1. **Form rate:** the season clear rate is first pulled toward 50% by 6 games of coin-flip evidence, so a short
+   season can't claim certainty. The last-10 clear rate is then shrunk toward it, worth 12 games of season
+   evidence. A 9-of-10 run in a 10-game season comes out near 80%, not 90%. Fewer than 8 games: not rated.
+2. **Price chance:** the break-even chance the odds imply (vig included).
+3. **Flow's estimate:** price chance + 35% × (form rate − price chance). Markets are hard to beat, so Flow only
+   moves part of the way toward form. `FORM_WEIGHT` will be tuned once tracked results build up.
+4. **Value:** estimate − price chance, in percentage points. +3 or more is a good price, 0 to 3 a small edge,
+   below 0 priced in.
+
+## Estimated lines
+
+The free Odds API plan can't price props for every game, and Betway isn't in any free feed. So Flow also rates
+every player in tonight's games against a line it estimates (`packages/core/src/lines.ts`):
+
+- **Who:** NBA players averaging 20+ minutes and NHL skaters averaging 13+ minutes over their last 10 games;
+  NFL quarterbacks, running backs, receivers and tight ends. At least 8 games played.
+- **Line:** the half-point line where the player's season splits closest to 50/50, with the last 10 games
+  counting double since books lean on recent form (ties go to the line nearest the season and last-10 average). So the line itself says "coin flip" and only form against it moves the
+  signal. If no line splits within 15 points of 50/50 (a 1-shot-a-game player is under 1.5 most nights and
+  over 0.5 most nights), Flow skips that stat. Anytime goal and anytime TD use 0.5, Over only. Lines under a
+  book's usual minimum are skipped (for example NBA points under 9.5).
+- Players and stats that have a real price skip this, so there's never a duplicate.
+- An estimated play has no price, so no Bet value. Type Betway's line and price on it and Flow re-scores it at
+  your line from fresh game logs. Rescans keep your line, and clearing your price puts Flow's line back.
+
+Real prop prices are spread over the month: each scan spends (credits left − 20) ÷ (days to reset × 2 scans a
+day), one game at a time, alternating leagues.
+
+## Watch
+
+A play gets Watch when any of these hold: fewer than 8 games this season, fewer than 7 of the last 10 played,
+a price older than 3 hours, listed questionable, or no news source confirmed the context.
+
+## Team markets (moneyline, spread, total)
+
+Past cover rates against today's line are misleading, because every past game had its own line and opponent. So
+team markets get their form rate from a matchup model in `packages/core/src/matchup.ts`:
+
+- **Team strength** = average margin, half last 10 and half season.
+- **Expected margin** = 0.7 × (team strength − opponent strength) ± home edge (NBA 2.5, NFL 1.5, NHL 0.25).
+- **Expected total** = the average of both teams' game totals, half last 10 and half season.
+- The chance comes from a normal curve around that number (margin spread: NBA 12, NFL 13.5, NHL 2.3 goals;
+  total spread: NBA 18, NFL 13.5, NHL 2.2 goals). It then goes through the same market blend as props.
+
+The Flow Signal for team markets is recent form against today's number, blended with this model's chance.

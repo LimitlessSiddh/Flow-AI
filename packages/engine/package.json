@@ -1,0 +1,19 @@
+{
+  "name": "@flow/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Flow's pipeline: scan a slate, score plays, research them, settle results, and read the board.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@flow/core": "workspace:*",
+    "@flow/data": "workspace:*",
+    "@flow/db": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
