@@ -4,8 +4,10 @@ import {
   modelProbability,
   summarizeForm,
   tier,
+  teamMarketProbability,
   type FormSummary,
   type GameValue,
+  type League,
 } from "@flow/core";
 import { STAT_LABEL, type Game, type PlayerGame, type StatKey, type TeamGameResult } from "@flow/data";
 import type { ContextRow, NewPlay } from "@flow/db";
@@ -34,6 +36,8 @@ export interface Evidence {
   position?: string;
   subjectId?: string;
   headshot?: string;
+  /** team markets: chance from the matchup model, used instead of the form rate */
+  teamModel?: number | null;
 }
 
 const LAST = 20; // keep the last 20 games; windows use the last 10
@@ -62,7 +66,25 @@ export function propEvidence(games: PlayerGame[], stat: StatKey, line: number, s
 }
 
 /** Team markets: moneyline (won = 1), spread (margin vs the points), total (both teams' game totals). */
-export function teamEvidence(m: Market, results: TeamGameResult[], other?: TeamGameResult[]): Evidence {
+/** Team markets. `opp` is the other team's results; totals use both teams' game totals. */
+export function teamEvidence(m: Market, results: TeamGameResult[], opp: TeamGameResult[] = []): Evidence {
+  const ev = teamEvidenceRaw(m, results, m.kind === "total" ? opp : undefined);
+  const home = m.kind === "total" ? true : m.side === m.game.home.code;
+  const teamModel = teamMarketProbability(
+    m.game.league as League,
+    m.kind as "moneyline" | "spread" | "total",
+    {
+      me: { games: results },
+      opp: { games: opp },
+      home,
+      points: m.line,
+      side: m.side,
+    },
+  );
+  return { ...ev, teamModel };
+}
+
+function teamEvidenceRaw(m: Market, results: TeamGameResult[], other?: TeamGameResult[]): Evidence {
   const recent = results.slice(-LAST);
   const context: ContextRow[] = [];
   if (results.length >= 5) {
@@ -115,7 +137,8 @@ export interface Scored {
 
 export function score(ev: Evidence): Scored {
   const form = summarizeForm(ev.log, ev.compareLine, ev.compareSide);
-  return { form, signal: flowSignal(form, ev.compareLine, ev.compareSide), model: modelProbability(form) };
+  const model = ev.teamModel !== undefined ? ev.teamModel : modelProbability(form);
+  return { form, signal: flowSignal(form, ev.compareLine, ev.compareSide), model };
 }
 
 export function marketLabel(m: Pick<Market, "kind" | "stat" | "side" | "line" | "subject">): string {
