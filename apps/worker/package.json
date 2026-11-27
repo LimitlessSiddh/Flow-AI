@@ -1,0 +1,20 @@
+{
+  "name": "@flow/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Command-line jobs: scan a slate, settle results, and check that every data source is reachable.",
+  "scripts": {
+    "scan": "tsx src/cli.ts scan",
+    "settle": "tsx src/cli.ts settle",
+    "doctor": "tsx src/cli.ts doctor",
+    "seed:demo": "DATABASE_PATH=data/demo.db tsx src/seed-demo.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@flow/core": "workspace:*",
+    "@flow/data": "workspace:*",
+    "@flow/db": "workspace:*",
+    "@flow/engine": "workspace:*"
+  }
+}
