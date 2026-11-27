@@ -2,6 +2,7 @@ export interface FilterState {
   league: string;
   game: string;
   market: string;
+  lines: "all" | "book" | "estimated";
   minSig: number;
   watch: boolean;
   savedOnly: boolean;
@@ -12,6 +13,7 @@ export const DEFAULT_FILTERS: FilterState = {
   league: "All",
   game: "all",
   market: "all",
+  lines: "all",
   minSig: 0,
   watch: true,
   savedOnly: false,
@@ -36,6 +38,14 @@ export function Filters({ f, set }: { f: FilterState; set: (p: Partial<FilterSta
           <option value="moneyline">Moneyline</option>
           <option value="spread">Spread</option>
           <option value="total">Game total</option>
+        </select>
+      </label>
+      <label className="sel">
+        Lines
+        <select value={f.lines} onChange={(e) => set({ lines: e.target.value as FilterState["lines"] })}>
+          <option value="all">All</option>
+          <option value="book">Real prices</option>
+          <option value="estimated">Estimated</option>
         </select>
       </label>
       <label className="sel">

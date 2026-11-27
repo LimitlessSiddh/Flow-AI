@@ -40,8 +40,8 @@ export function usePlayState() {
 export function useSetPrice() {
   const inv = useInvalidate();
   return useMutation({
-    mutationFn: (v: { id: string; odds: string | null }) =>
-      v.odds == null ? api.clearPrice(v.id) : api.setPrice(v.id, v.odds),
+    mutationFn: (v: { id: string; odds: string | null; line?: number | null }) =>
+      v.odds == null ? api.clearPrice(v.id) : api.setPrice(v.id, v.odds, v.line),
     onSuccess: inv,
   });
 }

@@ -162,6 +162,10 @@ function Detail({
                 <span className="nobook">No {preferredBook} price, showing a backup book</span>
               )}
             </>
+          ) : p.lineSource === "estimated" ? (
+            <span className="nobook">
+              Flow estimated this line. Type {preferredBook}'s real line and price below.
+            </span>
           ) : (
             <span>No price found yet</span>
           )}

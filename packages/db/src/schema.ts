@@ -52,6 +52,8 @@ export const plays = sqliteTable(
     stat: text("stat"), // StatKey for props
     side: text("side").notNull(),
     line: real("line"),
+    // book: the line came with a real price. estimated: Flow guessed it; your Betway line replaces it.
+    lineSource: text("line_source").notNull().default("book"),
     signal: integer("signal"),
     model: real("model"), // Flow's chance, 0..1
     quality: integer("quality").notNull().default(1),

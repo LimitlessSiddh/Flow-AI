@@ -43,6 +43,8 @@ export interface PlaySummary {
   unit: string;
   side: string;
   line: number | null;
+  /** book: the line came with a real price. estimated: Flow guessed it until you type in Betway's line. */
+  lineSource: "book" | "estimated";
   market: string;
   signal: number | null;
   tier: Tier | null;

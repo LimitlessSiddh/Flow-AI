@@ -30,6 +30,23 @@ Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
 4. **Value:** estimate − price chance, in percentage points. +3 or more is a good price, 0 to 3 a small edge,
    below 0 priced in.
 
+## Estimated lines
+
+The free Odds API plan can't price props for every game, and Betway isn't in any free feed. So Flow also rates
+every player in tonight's games against a line it estimates (`packages/core/src/lines.ts`):
+
+- **Who:** NBA players averaging 20+ minutes and NHL skaters averaging 13+ minutes over their last 10 games;
+  NFL quarterbacks, running backs, receivers and tight ends. At least 8 games played.
+- **Line:** the midpoint of the season and last-10 averages, rounded to the half point below the next whole
+  number. Yes/no props (anytime goal, 1+ point, anytime TD) use 0.5, Over only. Lines under a book's usual
+  minimum are skipped (for example NBA points under 9.5).
+- Players and stats that have a real price skip this, so there's never a duplicate.
+- An estimated play has no price, so no Bet value. Type Betway's line and price on it and Flow re-scores it at
+  your line from fresh game logs. Rescans keep your line.
+
+Real prop prices are spread over the month: each scan spends (credits left − 20) ÷ (days to reset × 2 scans a
+day), one game at a time, alternating leagues.
+
 ## Watch
 
 A play gets Watch when any of these hold: fewer than 8 games this season, fewer than 7 of the last 10 played,

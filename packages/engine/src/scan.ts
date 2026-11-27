@@ -1,4 +1,14 @@
-import { betValue, evidenceQuality, formatOdds, LEAGUES, tier, watchReasons, type League } from "@flow/core";
+import {
+  betValue,
+  daysUntilReset,
+  evidenceQuality,
+  formatOdds,
+  LEAGUES,
+  propCreditBudget,
+  tier,
+  watchReasons,
+  type League,
+} from "@flow/core";
 import {
   findByName,
   leagueSources,
@@ -43,6 +53,7 @@ import {
 } from "./analyze.js";
 import type { Config } from "./config.js";
 import { espnGameLines } from "./espnOdds.js";
+import { estimatedMarkets, pricedKey } from "./estimate.js";
 import { MANUAL_BOOK } from "./ids.js";
 import { minutesOld, pickPrice } from "./prices.js";
 import { makeProvider } from "./research/cli.js";
@@ -137,16 +148,6 @@ export async function runScan(
         } catch (e) {
           step(`${lg}: The Odds API failed (${msg(e)})`, "warn");
         }
-        const left = deps.odds.credits.remaining;
-        if (left != null && left < cfg.oddsMinCredits) {
-          step(`Odds API credits are low (${left} left), so player props were skipped.`, "warn");
-        } else {
-          try {
-            quotes.push(...(await propQuotes(deps.odds, lg, lgGames, cfg.propEventsPerLeague, step)));
-          } catch (e) {
-            step(`${lg}: props failed (${msg(e)})`, "warn");
-          }
-        }
       }
       if (!gotLines) {
         try {
@@ -158,6 +159,13 @@ export async function runScan(
         }
       }
     }
+    if (deps.odds) {
+      try {
+        quotes.push(...(await propQuotes(deps.odds, upcoming, cfg, date, step)));
+      } catch (e) {
+        step(`Player props failed (${msg(e)})`, "warn");
+      }
+    }
     if (!deps.odds)
       step(
         "No ODDS_API_KEY set, so there are no player props. Add a free key, or add plays by hand.",
@@ -166,9 +174,29 @@ export async function runScan(
 
     // 3. Markets and scoring
     const bookOrder = [MANUAL_BOOK, ...cfg.bookmakers];
-    const markets = groupMarkets(quotes, upcoming, date, bookOrder);
-    step(`Scoring ${markets.length} markets`);
+    const markets: Option[][] = groupMarkets(quotes, upcoming, date, bookOrder);
     const ctx = new Ctx(deps.sources, date);
+    if (cfg.estimatedLines) {
+      const priced = new Set(
+        markets
+          .map((g) => g[0]!.m)
+          .filter((m) => m.kind === "prop" && m.stat)
+          .map((m) => pricedKey(m.game.id, m.subject, m.stat!)),
+      );
+      try {
+        const est = await estimatedMarkets(
+          { roster: (lg, t) => ctx.roster(lg, t), log: (lg, p) => ctx.log(lg, p) },
+          upcoming,
+          date,
+          priced,
+        );
+        markets.push(...est);
+        step(`Estimated lines for ${est.length} player props with no real price`);
+      } catch (e) {
+        step(`Estimated lines failed (${msg(e)})`, "warn");
+      }
+    }
+    step(`Scoring ${markets.length} markets`);
     const evaluated: { m: Market; ev: Evidence; s: Scored; q: Quote[] }[] = [];
     const skipped: { market: string; reason: string }[] = [];
     await mapLimit(markets, 4, async (group) => {
@@ -248,28 +276,70 @@ export async function runScan(
   }
 }
 
+/**
+ * Real prices for player props, one game at a time, until this scan's share of the month's credits is spent.
+ * Games are taken in start order, alternating leagues, so every league gets some.
+ */
 async function propQuotes(
   odds: OddsApi,
-  lg: League,
   games: Game[],
-  maxEvents: number,
+  cfg: Config,
+  date: string,
   step: Step,
 ): Promise<Quote[]> {
-  if (maxEvents <= 0) return [];
-  const events = await odds.events(lg);
-  const picks = [...games].sort((a, b) => a.startTime.localeCompare(b.startTime)).slice(0, maxEvents);
-  const out: Quote[] = [];
-  for (const g of picks) {
-    const ev = events.find(
-      (e) =>
-        e.home.toLowerCase() === g.home.name.toLowerCase() &&
-        e.away.toLowerCase() === g.away.name.toLowerCase(),
-    );
-    if (!ev) continue;
-    const q = await odds.props(lg, ev.id, g, DEFAULT_PROP_STATS[lg]);
-    out.push(...q);
+  const left = odds.credits.remaining;
+  if (left == null) return [];
+  const budget = propCreditBudget({
+    remaining: left,
+    daysLeft: daysUntilReset(date, cfg.oddsResetDay),
+    scansPerDay: cfg.oddsScansPerDay,
+    reserve: cfg.oddsMinCredits,
+  });
+  if (budget <= 0) {
+    step(`Odds API credits are low (${left} left), so real prop prices were skipped this scan.`, "warn");
+    return [];
   }
-  step(`${lg}: ${out.length} player-prop prices for ${picks.length} games`);
+  const byLeague = new Map<League, Game[]>();
+  for (const g of [...games].sort((a, b) => a.startTime.localeCompare(b.startTime))) {
+    const lg = g.league as League;
+    const list = byLeague.get(lg) ?? [];
+    if (list.length < cfg.propEventsPerLeague) list.push(g);
+    byLeague.set(lg, list);
+  }
+  const order: Game[] = [];
+  for (let i = 0; [...byLeague.values()].some((l) => i < l.length); i++)
+    for (const l of byLeague.values()) if (l[i]) order.push(l[i]!);
+
+  const events = new Map<League, Awaited<ReturnType<OddsApi["events"]>>>();
+  const out: Quote[] = [];
+  const counts = new Map<League, { games: number; prices: number }>();
+  let lastCost = 0;
+  for (const g of order) {
+    const spent = left - (odds.credits.remaining ?? left);
+    if (spent + lastCost > budget) break;
+    const lg = g.league as League;
+    if (!events.has(lg)) events.set(lg, await odds.events(lg));
+    const ev = events
+      .get(lg)!
+      .find(
+        (e) =>
+          e.home.toLowerCase() === g.home.name.toLowerCase() &&
+          e.away.toLowerCase() === g.away.name.toLowerCase(),
+      );
+    if (!ev) continue;
+    const before = odds.credits.remaining ?? left;
+    const q = await odds.props(lg, ev.id, g, DEFAULT_PROP_STATS[lg]);
+    lastCost = Math.max(lastCost, before - (odds.credits.remaining ?? before));
+    out.push(...q);
+    const c = counts.get(lg) ?? { games: 0, prices: 0 };
+    counts.set(lg, { games: c.games + 1, prices: c.prices + q.length });
+  }
+  for (const [lg, c] of counts)
+    step(`${lg}: ${c.prices} real player-prop prices for ${c.games} game${c.games === 1 ? "" : "s"}`);
+  const spent = left - (odds.credits.remaining ?? left);
+  step(
+    `Spent ${spent} of this scan's ${budget}-credit share on props (${odds.credits.remaining ?? "?"} left this month)`,
+  );
   return out;
 }
 
@@ -408,6 +478,17 @@ function saveBoard(
 
     for (const { row, q } of rows) {
       const existing = tx.select().from(playsT).where(eq(playsT.id, row.id!)).get();
+      const mine = tx
+        .select({ line: pricesT.line })
+        .from(pricesT)
+        .where(and(eq(pricesT.playId, row.id!), eq(pricesT.book, MANUAL_BOOK)))
+        .get();
+      if (existing && row.kind === "prop" && mine?.line != null && mine.line !== row.line) {
+        // You typed Betway's line and the play was re-scored at it. Keep that; only refresh book prices.
+        tx.update(playsT).set({ scanId }).where(eq(playsT.id, row.id!)).run();
+        replaceApiPrices(tx, row.id!, q);
+        continue;
+      }
       const merged: NewPlay = existing?.researchedBy
         ? // keep yesterday's research text and availability; numbers refresh
           {
@@ -419,31 +500,35 @@ function saveBoard(
           }
         : row;
       tx.insert(playsT).values(merged).onConflictDoUpdate({ target: playsT.id, set: merged }).run();
-      tx.delete(pricesT)
-        .where(and(eq(pricesT.playId, row.id!), eq(pricesT.origin, "api")))
-        .run();
-      const seen = new Set<string>();
-      for (const quote of q) {
-        if (seen.has(quote.book)) continue;
-        seen.add(quote.book);
-        tx.insert(pricesT)
-          .values({
-            playId: row.id!,
-            book: quote.book,
-            bookTitle: quote.bookTitle,
-            odds: quote.odds,
-            line: quote.line,
-            retrievedAt: quote.retrievedAt || new Date().toISOString(),
-            origin: "api",
-          })
-          .onConflictDoNothing()
-          .run();
-      }
+      replaceApiPrices(tx, row.id!, q);
     }
     tx.delete(leftOff).where(eq(leftOff.date, date)).run();
     for (const s of skipped.slice(0, 40))
       tx.insert(leftOff).values({ date, market: s.market, reason: s.reason, scanId }).run();
   });
+}
+
+function replaceApiPrices(tx: Pick<Db, "delete" | "insert">, playId: string, q: Quote[]) {
+  tx.delete(pricesT)
+    .where(and(eq(pricesT.playId, playId), eq(pricesT.origin, "api")))
+    .run();
+  const seen = new Set<string>();
+  for (const quote of q) {
+    if (seen.has(quote.book)) continue;
+    seen.add(quote.book);
+    tx.insert(pricesT)
+      .values({
+        playId,
+        book: quote.book,
+        bookTitle: quote.bookTitle,
+        odds: quote.odds,
+        line: quote.line,
+        retrievedAt: quote.retrievedAt || new Date().toISOString(),
+        origin: "api",
+      })
+      .onConflictDoNothing()
+      .run();
+  }
 }
 
 export async function researchPlay(
