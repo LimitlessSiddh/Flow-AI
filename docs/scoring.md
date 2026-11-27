@@ -1,0 +1,30 @@
+# Scoring
+
+All of this lives in `packages/core/src/score.ts` and is covered by tests.
+
+## Flow Signal (0 to 100)
+
+Three parts, each mapped to 0..1, weighted and scaled to 100:
+
+| Part              | Weight | What it measures                                                                  |
+| ----------------- | ------ | --------------------------------------------------------------------------------- |
+| Recent clear rate | 50%    | Share of games over the line in the last 5, 8 and 10 (weighted .5 / .3 / .2)      |
+| Lift              | 25%    | Last-10 average against the season average, in standard deviations (capped at ±2) |
+| Cushion           | 25%    | Last-5 average against the line, in standard deviations (capped at ±2)            |
+
+Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
+
+## Bet value
+
+1. **Form rate:** last-10 clear rate shrunk toward the season clear rate, worth 12 games of season evidence.
+   Fewer than 8 games: not rated.
+2. **Price chance:** the break-even chance the odds imply (vig included).
+3. **Flow's estimate:** price chance + 35% × (form rate − price chance). Markets are hard to beat, so Flow only
+   moves part of the way toward form. `FORM_WEIGHT` will be tuned once tracked results build up.
+4. **Value:** estimate − price chance, in percentage points. +3 or more is a good price, 0 to 3 a small edge,
+   below 0 priced in.
+
+## Watch
+
+A play gets Watch when any of these hold: fewer than 8 games this season, fewer than 7 of the last 10 played,
+a price older than 3 hours, listed questionable, or no news source confirmed the context.

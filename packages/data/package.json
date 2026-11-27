@@ -1,0 +1,13 @@
+{
+  "name": "@flow/data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Adapters for free live sources: NHL API, ESPN public JSON (NBA, NFL), The Odds API.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": {
+    "@flow/core": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
