@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { openDb } from "@flow/db";
 import type { Game, LeagueSource, Player, PlayerGame, Quote, TeamGameResult, TeamRef } from "@flow/data";
 import { loadConfig } from "./config.js";
-import { getBoard, getPlay, setManualPrice, setPlayState, datesSummary } from "./board.js";
+import { clearManualPrice, getBoard, getPlay, setManualPrice, setPlayState, datesSummary } from "./board.js";
 import { runScan, type ScanDeps } from "./scan.js";
 import { settleDate } from "./settle.js";
-import { addManualPlay, rescorePropAtLine } from "./manual.js";
+import { addManualPlay, rescorePropAtLine, restoreScanLine } from "./manual.js";
 import type { ResearchProvider } from "./research/types.js";
 
 const DATE = "2026-11-27";
@@ -241,6 +241,12 @@ describe("scan → board → price → settle", () => {
     // a rescan keeps your line
     await runScan(db, cfg, DATE, deps());
     expect(getPlay(db, est.id, o)!.line).toBe(19.5);
+
+    // clearing your price puts Flow's estimate back
+    expect(await restoreScanLine(db, deps(), est.id)).toBe(true);
+    clearManualPrice(db, est.id);
+    const back = getPlay(db, est.id, o)!;
+    expect(back).toMatchObject({ line: 15.5, lineSource: "estimated", signal: est.signal, price: null });
   });
 
   it("adds a play you found on Betway", async () => {

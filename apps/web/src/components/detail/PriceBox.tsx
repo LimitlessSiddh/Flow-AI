@@ -74,7 +74,11 @@ export function PriceBox({
             {mine ? "Update" : "Use this price"}
           </button>
           {mine && (
-            <button type="button" className="tb" onClick={() => m.mutate({ id: p.id, odds: null })}>
+            <button
+              type="button"
+              className="tb"
+              onClick={() => m.mutate({ id: p.id, odds: null }, { onError: (x) => setErr(x.message) })}
+            >
               Clear
             </button>
           )}

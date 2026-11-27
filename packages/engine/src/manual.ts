@@ -85,10 +85,16 @@ export async function addManualPlay(db: Db, cfg: Config, deps: ScanDeps, input: 
  * Re-score the play at your line from fresh game logs, so Signal and Value match the bet you'd place.
  * Keeps the play's research text and your saved or tracked state.
  */
-export async function rescorePropAtLine(db: Db, deps: ScanDeps, id: string, line: number): Promise<boolean> {
+export async function rescorePropAtLine(
+  db: Db,
+  deps: ScanDeps,
+  id: string,
+  line: number,
+  lineSource: "book" | "estimated" = "book",
+): Promise<boolean> {
   const play = db.select().from(playsT).where(eq(playsT.id, id)).get();
   if (!play || play.kind !== "prop" || !play.stat) return false;
-  if (play.line === line && play.lineSource !== "estimated") return false;
+  if (play.line === line && play.lineSource === lineSource) return false;
   const g = db.select().from(gamesT).where(eq(gamesT.id, play.gameId)).get();
   if (!g) throw new ManualPlayError("Couldn't find this play's game.");
   const game: Game = {
@@ -126,7 +132,7 @@ export async function rescorePropAtLine(db: Db, deps: ScanDeps, id: string, line
   db.update(playsT)
     .set({
       line,
-      lineSource: "book",
+      lineSource,
       signal: row.signal,
       model: row.model,
       log: row.log,
@@ -141,4 +147,12 @@ export async function rescorePropAtLine(db: Db, deps: ScanDeps, id: string, line
     .where(eq(playsT.id, id))
     .run();
   return true;
+}
+
+/** You cleared your Betway price: put the play back on the line the scan scored. */
+export async function restoreScanLine(db: Db, deps: ScanDeps, id: string): Promise<boolean> {
+  const play = db.select().from(playsT).where(eq(playsT.id, id)).get();
+  if (!play || play.scanLine == null) return false;
+  const src = play.scanLineSource === "estimated" ? "estimated" : "book";
+  return rescorePropAtLine(db, deps, id, play.scanLine, src);
 }

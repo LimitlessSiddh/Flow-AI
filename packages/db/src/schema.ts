@@ -54,6 +54,9 @@ export const plays = sqliteTable(
     line: real("line"),
     // book: the line came with a real price. estimated: Flow guessed it; your Betway line replaces it.
     lineSource: text("line_source").notNull().default("book"),
+    // the line and source the scan scored, so clearing your Betway price puts the play back
+    scanLine: real("scan_line"),
+    scanLineSource: text("scan_line_source"),
     signal: integer("signal"),
     model: real("model"), // Flow's chance, 0..1
     quality: integer("quality").notNull().default(1),

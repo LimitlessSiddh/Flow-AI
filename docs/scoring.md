@@ -37,12 +37,14 @@ every player in tonight's games against a line it estimates (`packages/core/src/
 
 - **Who:** NBA players averaging 20+ minutes and NHL skaters averaging 13+ minutes over their last 10 games;
   NFL quarterbacks, running backs, receivers and tight ends. At least 8 games played.
-- **Line:** the midpoint of the season and last-10 averages, rounded to the half point below the next whole
-  number. Yes/no props (anytime goal, 1+ point, anytime TD) use 0.5, Over only. Lines under a book's usual
-  minimum are skipped (for example NBA points under 9.5).
+- **Line:** the half-point line where the player's season splits closest to 50/50 (ties go to the line
+  nearest the season and last-10 average). So the season alone says "coin flip" and only recent form moves the
+  signal. If no line splits within 15 points of 50/50 (a 1-shot-a-game player is under 1.5 most nights and
+  over 0.5 most nights), Flow skips that stat. Anytime goal and anytime TD use 0.5, Over only. Lines under a
+  book's usual minimum are skipped (for example NBA points under 9.5).
 - Players and stats that have a real price skip this, so there's never a duplicate.
 - An estimated play has no price, so no Bet value. Type Betway's line and price on it and Flow re-scores it at
-  your line from fresh game logs. Rescans keep your line.
+  your line from fresh game logs. Rescans keep your line, and clearing your price puts Flow's line back.
 
 Real prop prices are spread over the month: each scan spends (credits left − 20) ÷ (days to reset × 2 scans a
 day), one game at a time, alternating leagues.
