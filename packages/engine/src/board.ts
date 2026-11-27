@@ -84,6 +84,7 @@ function summarize(
     unit: unitFor(p),
     side: p.side,
     line: p.line,
+    lineSource: p.lineSource === "estimated" ? "estimated" : "book",
     market: marketLabel({
       kind: p.kind as never,
       stat: p.stat as StatKey | undefined,

@@ -7,6 +7,9 @@ export interface Config {
   bookmakers: string[];
   oddsMinCredits: number;
   propEventsPerLeague: number;
+  oddsScansPerDay: number;
+  oddsResetDay: number;
+  estimatedLines: boolean;
   preferredBook: string;
   researchProvider: "claude" | "codex" | "off";
   researchTopN: number;
@@ -34,8 +37,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
-    oddsMinCredits: int(env.ODDS_MIN_CREDITS, 60),
-    propEventsPerLeague: int(env.ODDS_PROP_EVENTS, 3),
+    oddsMinCredits: int(env.ODDS_MIN_CREDITS, 20),
+    propEventsPerLeague: int(env.ODDS_PROP_EVENTS, 99),
+    oddsScansPerDay: Math.max(1, int(env.ODDS_SCANS_PER_DAY, 2)),
+    oddsResetDay: Math.min(28, Math.max(1, int(env.ODDS_RESET_DAY, 1))),
+    estimatedLines: (env.ESTIMATED_LINES ?? "on").toLowerCase() !== "off",
     preferredBook: env.PREFERRED_BOOK?.trim() || "Betway",
     researchProvider: provider === "codex" ? "codex" : provider === "off" ? "off" : "claude",
     researchTopN: int(env.RESEARCH_TOP_N, 6),

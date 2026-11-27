@@ -5,7 +5,7 @@ import { loadConfig } from "./config.js";
 import { getBoard, getPlay, setManualPrice, setPlayState, datesSummary } from "./board.js";
 import { runScan, type ScanDeps } from "./scan.js";
 import { settleDate } from "./settle.js";
-import { addManualPlay } from "./manual.js";
+import { addManualPlay, rescorePropAtLine } from "./manual.js";
 import type { ResearchProvider } from "./research/types.js";
 
 const DATE = "2026-11-27";
@@ -22,6 +22,14 @@ const game: Game = {
   sourceId: "espn:1",
 };
 const hale: Player = { id: "espn:9", name: "Marcus Hale", team: "BOS", league: "NBA", position: "F" };
+// No book prices Cole, so Flow estimates his lines.
+const cole: Player = { id: "espn:12", name: "Dana Cole", team: "ORL", league: "NBA", position: "G" };
+const colePts = [10, 11, 9, 12, 10, 14, 16, 18, 17, 19, 20, 21];
+const coleLog: PlayerGame[] = colePts.map((v, i) => ({
+  date: `2026-11-${String(i + 1).padStart(2, "0")}`,
+  stats: { points: v, rebounds: 3, assists: 2, threes: 1 },
+  minutes: 30,
+}));
 const pts = [22, 25, 19, 28, 24, 31, 29, 33, 27, 34, 30, 32];
 const haleLog: PlayerGame[] = pts.map((v, i) => ({
   date: `2026-11-${String(i + 1).padStart(2, "0")}`,
@@ -45,11 +53,13 @@ function fakeNba(final = false): LeagueSource {
       t.code === "BOS"
         ? results([true, true, false, true, true, true, false, true, true, true])
         : results([false, false, true, false, false, true, false, false, true, false]),
-    roster: async (t) => (t.code === "BOS" ? [hale] : []),
-    playerLog: async (_p, before) =>
-      [...haleLog, ...(before > DATE ? [{ date: DATE, stats: { points: 29 } }] : [])].filter(
-        (g) => g.date < before,
-      ),
+    roster: async (t) => (t.code === "BOS" ? [hale] : [cole]),
+    playerLog: async (p, before) =>
+      p.id === cole.id
+        ? coleLog.filter((g) => g.date < before)
+        : [...haleLog, ...(before > DATE ? [{ date: DATE, stats: { points: 29 } }] : [])].filter(
+            (g) => g.date < before,
+          ),
   };
 }
 const empty: LeagueSource = {
@@ -153,7 +163,7 @@ function deps(final = false): ScanDeps {
   };
 }
 
-const cfg = { ...loadConfig({}), researchTopN: 3 };
+const cfg = { ...loadConfig({}), researchTopN: 20 };
 const o = { bookOrder: ["betway", ...cfg.bookmakers], preferredBook: "Betway" };
 
 describe("scan → board → price → settle", () => {
@@ -164,7 +174,7 @@ describe("scan → board → price → settle", () => {
     expect(board.games).toHaveLength(1);
     expect(board.scan?.status).toBe("done");
 
-    const prop = board.plays.find((p) => p.kind === "prop")!;
+    const prop = board.plays.find((p) => p.kind === "prop" && p.subject === "Marcus Hale")!;
     expect(prop).toBeDefined();
     expect(prop.side).toBe("Over"); // over beats under on signal
     expect(prop.signal).toBeGreaterThanOrEqual(65);
@@ -201,6 +211,36 @@ describe("scan → board → price → settle", () => {
     expect(settled.plays.find((p) => p.kind === "moneyline")!.result?.won).toBe(true);
     expect(settled.week.won).toBe(1);
     expect(datesSummary(db, "2026-11-01", DATE)[0]).toMatchObject({ date: DATE, won: 2 });
+  });
+
+  it("estimates lines for unpriced players, and re-scores at your Betway line", async () => {
+    const db = openDb(":memory:");
+    await runScan(db, cfg, DATE, deps());
+    const board = getBoard(db, DATE, o);
+    // Hale's points have a real price, so no estimated duplicate
+    expect(board.plays.filter((p) => p.subject === "Marcus Hale" && p.stat === "points")).toHaveLength(1);
+    expect(board.plays.find((p) => p.subject === "Marcus Hale")!.lineSource).toBe("book");
+
+    const est = board.plays.find((p) => p.subject === "Dana Cole" && p.stat === "points")!;
+    expect(est).toBeDefined();
+    expect(est.lineSource).toBe("estimated");
+    expect(est.line).toBe(15.5); // midpoint of 14.75 season and 16.6 recent, to the half point
+    expect(est.side).toBe("Over");
+    expect(est.price).toBeNull();
+    expect(est.value).toBeNull();
+
+    // you type Betway's real line and price
+    expect(await rescorePropAtLine(db, deps(), est.id, 19.5)).toBe(true);
+    setManualPrice(db, est.id, -110, 19.5);
+    const mine = getPlay(db, est.id, o)!;
+    expect(mine.lineSource).toBe("book");
+    expect(mine.line).toBe(19.5);
+    expect(mine.signal!).toBeLessThan(est.signal!); // a higher line is harder to clear
+    expect(mine.value).not.toBeNull();
+
+    // a rescan keeps your line
+    await runScan(db, cfg, DATE, deps());
+    expect(getPlay(db, est.id, o)!.line).toBe(19.5);
   });
 
   it("adds a play you found on Betway", async () => {

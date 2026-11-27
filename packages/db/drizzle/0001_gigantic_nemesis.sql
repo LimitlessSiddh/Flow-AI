@@ -1,0 +1,1 @@
+ALTER TABLE `plays` ADD `line_source` text DEFAULT 'book' NOT NULL;

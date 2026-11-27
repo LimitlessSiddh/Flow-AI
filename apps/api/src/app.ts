@@ -11,6 +11,7 @@ import {
   ManualPlayError,
   MANUAL_BOOK,
   refreshFlags,
+  rescorePropAtLine,
   runScan,
   settleDate,
   setManualPrice,
@@ -117,6 +118,20 @@ export function buildApp({ db, cfg, deps }: AppDeps) {
       .parse(req.body);
     const odds = parseOdds(body.odds);
     if (odds == null) return reply.status(400).send({ error: "Type odds like -115, +105 or 1.87" });
+    if (body.line != null) {
+      try {
+        // Usually instant (game logs are cached). Don't leave the page waiting if a source is down.
+        await Promise.race([
+          rescorePropAtLine(db, deps, req.params.id, body.line),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timed out")), 12_000).unref()),
+        ]);
+      } catch (e) {
+        req.log.warn({ err: e }, "couldn't re-score at the new line");
+        return reply
+          .status(503)
+          .send({ error: "Couldn't load game logs to re-score at that line. Try again in a minute." });
+      }
+    }
     if (!setManualPrice(db, req.params.id, odds, body.line ?? null))
       return reply.status(404).send({ error: "Play not found" });
     const p = getPlay(db, req.params.id, o)!;

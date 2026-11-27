@@ -25,6 +25,8 @@ export interface Market {
   stat?: StatKey;
   side: string; // "Over" | "Under" | team code
   line: number | null;
+  /** true when Flow estimated the line because no book priced this prop */
+  estimated?: boolean;
 }
 
 export interface Evidence {
@@ -223,6 +225,7 @@ export function toPlayRow(
     stat: m.stat ?? null,
     side: m.side,
     line: m.line,
+    lineSource: m.estimated ? "estimated" : "book",
     signal: s.signal,
     model: s.model,
     quality: 1,

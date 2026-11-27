@@ -17,7 +17,9 @@ export function HelpPanel() {
         </p>
         <p>
           <b>Watch</b>The data is thin, stale or uncertain. Look, but don't lean on it. Flow never places
-          bets. Type in your Betway price on any play to use your book's real number.
+          bets. Type in your Betway price on any play to use your book's real number. "est. line" means no
+          book priced that prop, so Flow estimated the line from the player's own numbers. Type Betway's line
+          to re-score it.
         </p>
       </div>
     </div>

@@ -11,6 +11,7 @@ export function filterPlays(board: Board, f: FilterState, past: boolean): PlaySu
   if (f.league !== "All") r = r.filter((p) => (league.get(p.gameId) ?? p.league) === f.league);
   if (f.game !== "all") r = r.filter((p) => p.gameId === f.game);
   if (f.market !== "all") r = r.filter((p) => p.kind === f.market);
+  if (f.lines !== "all") r = r.filter((p) => p.lineSource === f.lines);
   r = r.filter((p) => (p.signal ?? 0) >= f.minSig);
   if (!f.watch) r = r.filter((p) => !p.watch.length);
   if (f.savedOnly) r = r.filter((p) => p.saved);
@@ -59,7 +60,13 @@ function Row({
       : `${game.away.code} @ ${game.home.code}`
     : p.league;
   const time = game ? fmtTime(game.startTime, tz) : "";
-  const price = p.price ? ` · ${fmtOdds(p.price.odds, fmt)}` : "";
+  const price = p.price ? (
+    ` · ${fmtOdds(p.price.odds, fmt)}`
+  ) : p.lineSource === "estimated" ? (
+    <span className="est"> · est. line</span>
+  ) : (
+    ""
+  );
   const who =
     p.kind === "total"
       ? `${game?.away.code ?? ""} @ ${game?.home.code ?? ""}`

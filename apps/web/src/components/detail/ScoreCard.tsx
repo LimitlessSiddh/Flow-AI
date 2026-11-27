@@ -43,7 +43,11 @@ export function ScoreCard({ p, fmt }: { p: PlayDetail; fmt: OddsFormat }) {
   };
   const priceTxt = p.price ? fmtOdds(p.price.odds, fmt) : null;
   const valCap = !p.price ? (
-    "No price yet. Type in your Betway price below to see the value."
+    p.lineSource === "estimated" ? (
+      "Flow estimated this line, so there's no price yet. Type Betway's line and price below to see the value."
+    ) : (
+      "No price yet. Type in your Betway price below to see the value."
+    )
   ) : v == null ? (
     "Not rated. There isn't enough evidence for Flow to estimate a chance."
   ) : v >= 0 ? (

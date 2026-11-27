@@ -244,3 +244,12 @@
     display: none;
   }
 }
+
+/* Estimated lines: Flow's guess until you type in Betway's line */
+.est {
+  color: var(--muted);
+  font-style: normal;
+}
+.mybook input.line {
+  width: 76px;
+}
