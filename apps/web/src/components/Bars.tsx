@@ -6,9 +6,9 @@ export function HelpPanel() {
     <div className="help">
       <div className="wrap">
         <p>
-          <b>Flow Signal, 0 to 100</b>Is the player or team hot right now, and does Flow's own model agree?
-          It mixes the last 5, 8 and 10 games with Flow's chance the play hits. 65 and up is Warm, 80 and up
-          is Hot. It ignores the price.
+          <b>Flow Signal, 0 to 100</b>Is the player or team hot right now, and does Flow's own model agree? It
+          mixes the last 5, 8 and 10 games with Flow's chance the play hits. 65 and up is Warm, 80 and up is
+          Hot. It ignores the price.
         </p>
         <p>
           <b>Bet value</b>Is the price good? The odds imply a break-even chance. Flow makes its own estimate.
