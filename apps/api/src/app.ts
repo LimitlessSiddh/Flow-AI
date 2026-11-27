@@ -12,6 +12,7 @@ import {
   MANUAL_BOOK,
   refreshFlags,
   rescorePropAtLine,
+  restoreScanLine,
   runScan,
   settleDate,
   setManualPrice,
@@ -139,8 +140,21 @@ export function buildApp({ db, cfg, deps }: AppDeps) {
     return getPlay(db, req.params.id, o);
   });
 
-  app.delete<{ Params: { id: string } }>("/api/plays/:id/price", async (req) => {
+  app.delete<{ Params: { id: string } }>("/api/plays/:id/price", async (req, reply) => {
+    try {
+      await Promise.race([
+        restoreScanLine(db, deps, req.params.id),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timed out")), 12_000).unref()),
+      ]);
+    } catch (e) {
+      req.log.warn({ err: e }, "couldn't restore the scan's line");
+      return reply
+        .status(503)
+        .send({ error: "Couldn't load game logs to restore Flow's line. Try again in a minute." });
+    }
     clearManualPrice(db, req.params.id);
+    const p = getPlay(db, req.params.id, o);
+    if (p) refreshFlags(db, p.date, bookOrder, deps.now());
     return getPlay(db, req.params.id, o);
   });
 

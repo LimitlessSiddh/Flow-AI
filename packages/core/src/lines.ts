@@ -4,9 +4,11 @@ import type { League } from "./types.js";
 /**
  * Estimated prop lines, for players the free odds feed doesn't price.
  *
- * Books set most lines near a player's expected output, and always on a half point so there are no pushes.
- * Flow's estimate is the midpoint of the season and last-10 averages, rounded to the nearest x.5 below
- * the next whole number. It is a stand-in until you type in Betway's real line, and the board says so.
+ * Books aim for a line that splits a player's outcomes about evenly, always on a half point so there are no
+ * pushes. Flow picks the half-point line where the player's season splits closest to 50/50, so the season on
+ * its own says "coin flip" and only recent form can move the Flow Signal. (Rounding the average instead put
+ * stars like a 2-point-a-game skater at 0.5 and made low-count Unders look like locks.)
+ * It is a stand-in until you type in Betway's real line, and the board says so.
  */
 export interface LineRule {
   /** Lowest line a book usually offers for this stat; below it, the player isn't worth a prop. */
@@ -23,7 +25,7 @@ export const LINE_RULES: Record<League, Record<string, LineRule>> = {
     threes: { min: 1.5 },
   },
   NHL: {
-    points: { min: 0.5, fixed: 0.5 },
+    points: { min: 0.5 },
     shots: { min: 1.5 },
     goals: { min: 0.5, fixed: 0.5 },
   },
@@ -42,12 +44,29 @@ export const MIN_ROLE_MINUTES: Partial<Record<League, number>> = { NBA: 20, NHL:
 /** Fewer played games than this and Flow won't guess a line. */
 export const MIN_GAMES_FOR_LINE = 8;
 
+/**
+ * If no half-point line splits the season within this much of 50/50, the stat is too lumpy to guess a line
+ * for (a 1-shot-a-game player is under 1.5 in most games and over 0.5 in most games). Flow skips it.
+ */
+export const MAX_SPLIT_GAP = 0.15;
+
 export function estimateLine(values: number[], rule: LineRule): number | null {
   if (values.length < MIN_GAMES_FOR_LINE) return null;
   if (rule.fixed != null) return rule.fixed;
-  const base = 0.5 * mean(values) + 0.5 * mean(values.slice(-10));
-  const line = Math.floor(base) + 0.5;
-  return line >= rule.min ? line : null;
+  const center = 0.5 * mean(values) + 0.5 * mean(values.slice(-10));
+  let best: { line: number; gap: number; dist: number } | null = null;
+  const lo = Math.floor(Math.min(...values));
+  const hi = Math.ceil(Math.max(...values));
+  for (let k = lo; k <= hi; k++) {
+    const line = k + 0.5;
+    const over = values.filter((v) => v > line).length / values.length;
+    const gap = Math.abs(over - 0.5);
+    const dist = Math.abs(line - center);
+    if (!best || gap < best.gap - 1e-9 || (Math.abs(gap - best.gap) <= 1e-9 && dist < best.dist))
+      best = { line, gap, dist };
+  }
+  if (!best || best.gap > MAX_SPLIT_GAP || best.line < rule.min) return null;
+  return best.line;
 }
 
 /**

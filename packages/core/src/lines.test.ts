@@ -2,10 +2,22 @@ import { describe, expect, it } from "vitest";
 import { daysUntilReset, estimateLine, LINE_RULES, propCreditBudget } from "./lines.js";
 
 describe("estimateLine", () => {
-  it("rounds the season and recent midpoint to a half point", () => {
+  it("picks the half point where the season splits closest to 50/50", () => {
     const vals = [20, 22, 24, 26, 28, 30, 25, 27, 29, 31, 26, 28];
-    // season mean 26.33, last 10 mean 27.2, midpoint 26.77, so 26.5
+    // 26.5: 6 of 12 games over
     expect(estimateLine(vals, LINE_RULES.NBA.points!)).toBe(26.5);
+  });
+
+  it("gives a 2-point-a-game skater 1.5, not 0.5", () => {
+    const vals = [2, 3, 1, 2, 4, 0, 2, 1, 1, 2, 3, 2, 1, 2, 3, 1, 1, 4, 2, 1];
+    // over 1.5 in 11 of 20, over 0.5 in 19 of 20
+    expect(estimateLine(vals, LINE_RULES.NHL.points!)).toBe(1.5);
+  });
+
+  it("skips a stat too lumpy to split near 50/50", () => {
+    // about 1 shot a game: over 0.5 in 75% of games, over 1.5 in 25%. Either line hands one side a lock.
+    const vals = [1, 0, 2, 1, 1, 0, 2, 1, 1, 3, 0, 1, 2, 1, 0, 1];
+    expect(estimateLine(vals, { min: 0.5 })).toBeNull();
   });
 
   it("skips small roles and thin samples", () => {
