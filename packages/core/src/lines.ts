@@ -5,8 +5,8 @@ import type { League } from "./types.js";
  * Estimated prop lines, for players the free odds feed doesn't price.
  *
  * Books aim for a line that splits a player's outcomes about evenly, always on a half point so there are no
- * pushes. Flow picks the half-point line where the player's season splits closest to 50/50, so the season on
- * its own says "coin flip" and only recent form can move the Flow Signal. (Rounding the average instead put
+ * pushes. Flow picks the half-point line where the player's games split closest to 50/50 (the last 10 count double,
+ * as books lean on recent games), so the line itself says "coin flip" and only form against it moves the signal. (Rounding the average instead put
  * stars like a 2-point-a-game skater at 0.5 and made low-count Unders look like locks.)
  * It is a stand-in until you type in Betway's real line, and the board says so.
  */
@@ -59,7 +59,16 @@ export function estimateLine(values: number[], rule: LineRule): number | null {
   const hi = Math.ceil(Math.max(...values));
   for (let k = lo; k <= hi; k++) {
     const line = k + 0.5;
-    const over = values.filter((v) => v > line).length / values.length;
+    // Books lean on recent games, so the last 10 count double in the split.
+    const recentFrom = values.length - 10;
+    let w = 0;
+    let wOver = 0;
+    values.forEach((v, i) => {
+      const wt = i >= recentFrom ? 2 : 1;
+      w += wt;
+      if (v > line) wOver += wt;
+    });
+    const over = wOver / w;
     const gap = Math.abs(over - 0.5);
     const dist = Math.abs(line - center);
     if (!best || gap < best.gap - 1e-9 || (Math.abs(gap - best.gap) <= 1e-9 && dist < best.dist))

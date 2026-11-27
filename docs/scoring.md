@@ -37,8 +37,8 @@ every player in tonight's games against a line it estimates (`packages/core/src/
 
 - **Who:** NBA players averaging 20+ minutes and NHL skaters averaging 13+ minutes over their last 10 games;
   NFL quarterbacks, running backs, receivers and tight ends. At least 8 games played.
-- **Line:** the half-point line where the player's season splits closest to 50/50 (ties go to the line
-  nearest the season and last-10 average). So the season alone says "coin flip" and only recent form moves the
+- **Line:** the half-point line where the player's season splits closest to 50/50, with the last 10 games
+  counting double since books lean on recent form (ties go to the line nearest the season and last-10 average). So the line itself says "coin flip" and only form against it moves the
   signal. If no line splits within 15 points of 50/50 (a 1-shot-a-game player is under 1.5 most nights and
   over 0.5 most nights), Flow skips that stat. Anytime goal and anytime TD use 0.5, Over only. Lines under a
   book's usual minimum are skipped (for example NBA points under 9.5).
