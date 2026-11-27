@@ -67,15 +67,23 @@ export function tier(signal: number): Tier {
   return signal >= 80 ? "Hot" : signal >= 65 ? "Warm" : "Mild";
 }
 
+/** Games of "coin flip" evidence added to the season rate, so a short season can't claim certainty. */
+export const NEUTRAL_PRIOR_GAMES = 6;
+
 /**
- * Flow's chance the play hits: the last-10 clear rate shrunk toward the season clear rate.
- * The shrink weight k means "k games of season evidence". Returns null when the sample is too thin.
+ * Flow's chance the play hits, in two steps:
+ *  1. Season rate, pulled toward 50% by NEUTRAL_PRIOR_GAMES. Early in a season (or in the NFL, where the
+ *     last 10 is nearly the whole season) a 9-of-10 run would otherwise read as a 90% chance.
+ *  2. The last-10 clear rate, shrunk toward that season rate. k means "k games of season evidence".
+ * Returns null when the sample is too thin.
  */
 export function modelProbability(form: FormSummary, k = 12): number | null {
   if (form.season.games < MIN_GAMES_FOR_ESTIMATE) return null;
   const recent = form.windows.find((x) => x.n === 10) ?? form.windows.find((x) => x.n === 8);
   if (!recent) return null;
-  const p = (recent.hits + k * form.season.rate) / (recent.games + k);
+  const seasonHits = form.season.rate * form.season.games;
+  const seasonRate = (seasonHits + NEUTRAL_PRIOR_GAMES * 0.5) / (form.season.games + NEUTRAL_PRIOR_GAMES);
+  const p = (recent.hits + k * seasonRate) / (recent.games + k);
   return clamp(p, 0.03, 0.97);
 }
 

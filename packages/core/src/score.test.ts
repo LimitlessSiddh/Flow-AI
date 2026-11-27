@@ -89,9 +89,18 @@ describe("value", () => {
   it("shrinks recent rate toward the season rate", () => {
     const f = summarizeForm(log([22, 25, 19, 28, 24, 31, 29, 33, 27, 34]), 26.5);
     const p = modelProbability(f)!;
-    // last 10 = 6/10, season = 6/10 here, so the estimate stays 0.6
-    expect(p).toBeCloseTo(0.6, 5);
-    expect(betValue(p, -115)).toBeCloseTo(0.35 * (0.6 - 115 / 215) * 100, 5);
+    // last 10 = 6/10 and season = 6/10. Season pulled toward 50%: (6 + 3) / 16 = 0.5625.
+    const expected = (6 + 12 * 0.5625) / 22;
+    expect(p).toBeCloseTo(expected, 5);
+    expect(betValue(p, -115)).toBeCloseTo(0.35 * (expected - 115 / 215) * 100, 5);
+  });
+
+  it("doesn't call a 9-of-10 run in a 10-game season a 90% chance", () => {
+    // Live case: a QB's rushing Under 10.5, under in 9 of his 10 games.
+    const f = summarizeForm(log([2, 6, 7, 10, 10, 2, 73, 4, 2, 5]), 10.5, "Under");
+    const p = modelProbability(f)!;
+    expect(p).toBeLessThan(0.85);
+    expect(p).toBeGreaterThan(0.7);
   });
 
   it("needs a price and an estimate", () => {

@@ -21,8 +21,9 @@ Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
 
 ## Bet value
 
-1. **Form rate:** last-10 clear rate shrunk toward the season clear rate, worth 12 games of season evidence.
-   Fewer than 8 games: not rated.
+1. **Form rate:** the season clear rate is first pulled toward 50% by 6 games of coin-flip evidence, so a short
+   season can't claim certainty. The last-10 clear rate is then shrunk toward it, worth 12 games of season
+   evidence. A 9-of-10 run in a 10-game season comes out near 80%, not 90%. Fewer than 8 games: not rated.
 2. **Price chance:** the break-even chance the odds imply (vig included).
 3. **Flow's estimate:** price chance + 35% × (form rate − price chance). Markets are hard to beat, so Flow only
    moves part of the way toward form. `FORM_WEIGHT` will be tuned once tracked results build up.
