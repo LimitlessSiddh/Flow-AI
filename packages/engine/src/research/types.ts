@@ -67,6 +67,9 @@ Rules:
 - Use only reputable sources (league sites, team sites, ESPN, The Athletic, major outlets, official injury reports). Include each URL you used.
 - Mark a source "corroborated": true only if another independent source says the same thing.
 - Never invent statistics. If you can't find news, say so plainly and use status "unknown".
+- Every news claim (injury, trade, lineup or role change) must come from a source you list. If only one source
+  says it, start that sentence with "Unconfirmed:". If a source is older than 3 weeks, say how old it is.
+  Never repeat a rumour as fact. When unsure, leave the claim out.
 - Plain language, short sentences, for an 18 to 30 year old bettor. No hype, no betting advice.
 - "read" is 2 to 3 sentences (under 600 characters) explaining why this play showed up.
 - "counter" is 1 to 2 sentences (under 400 characters). "availability.text" is 1 to 2 sentences (under 300 characters).

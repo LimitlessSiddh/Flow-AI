@@ -1,7 +1,7 @@
 import { impliedFromAmerican } from "./odds.js";
 import type { FormSummary, Quality, Tier, ValueLabel } from "./types.js";
 
-export const SIGNAL_VERSION = "signal-v1";
+export const SIGNAL_VERSION = "signal-v2";
 export const MIN_GAMES_FOR_SIGNAL = 5;
 export const MIN_GAMES_FOR_ESTIMATE = 8;
 
@@ -36,6 +36,31 @@ export function flowSignal(form: FormSummary, line: number, side: "Over" | "Unde
 
   const score = 0.5 * recentRate + 0.25 * ((lift + 2) / 4) + 0.25 * ((cushion + 2) / 4);
   return Math.round(clamp(score, 0, 1) * 100);
+}
+
+/** How much of the Flow Signal comes from Flow's own chance the play hits (the rest is recent form). */
+export const MODEL_WEIGHT_IN_SIGNAL = 0.4;
+
+/**
+ * Turns a chance into signal points: 50% is 50 points, 65% is 75, 80% or more is 100, 20% or less is 0.
+ */
+export function modelPoints(model: number): number {
+  return clamp(50 + ((model - 0.5) / 0.3) * 50, 0, 100);
+}
+
+/**
+ * The Flow Signal shown on the board: recent form, pulled toward Flow's own chance the play hits.
+ * Without this, a hot streak could rank a play near the top even when Flow's model rates it a coin flip.
+ * Still ignores the price. With no model chance, the signal is recent form alone.
+ */
+export function blendSignal(
+  formSignal: number | null,
+  model: number | null,
+  weight = MODEL_WEIGHT_IN_SIGNAL,
+): number | null {
+  if (formSignal == null) return null;
+  if (model == null) return formSignal;
+  return Math.round((1 - weight) * formSignal + weight * modelPoints(model));
 }
 
 export function tier(signal: number): Tier {

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { summarizeForm } from "./form.js";
-import { betValue, flowSignal, modelProbability, tier, valueLabel, watchReasons } from "./score.js";
+import {
+  betValue,
+  blendSignal,
+  flowSignal,
+  modelPoints,
+  modelProbability,
+  tier,
+  valueLabel,
+  watchReasons,
+} from "./score.js";
 import type { GameValue } from "./types.js";
 
 const log = (vals: (number | null)[]): GameValue[] =>
@@ -27,6 +36,28 @@ describe("summarizeForm", () => {
   it("supports unders", () => {
     const f = summarizeForm(log([1, 2, 1, 0, 2]), 2.5, "Under");
     expect(f.windows[0]!.hits).toBe(5);
+  });
+});
+
+describe("blendSignal", () => {
+  it("maps chances to points", () => {
+    expect(modelPoints(0.5)).toBe(50);
+    expect(modelPoints(0.65)).toBeCloseTo(75);
+    expect(modelPoints(0.9)).toBe(100);
+    expect(modelPoints(0.1)).toBe(0);
+  });
+
+  it("keeps a streak the model rates as a coin flip out of Hot", () => {
+    // Live case: total Over with a form signal of 80 and a model chance of 50.6%.
+    const s = blendSignal(80, 0.506)!;
+    expect(tier(s)).not.toBe("Hot");
+    // A streak the model agrees with stays Hot.
+    expect(tier(blendSignal(84, 0.737)!)).toBe("Hot");
+  });
+
+  it("falls back to form alone without a model chance", () => {
+    expect(blendSignal(72, null)).toBe(72);
+    expect(blendSignal(null, 0.7)).toBeNull();
   });
 });
 
