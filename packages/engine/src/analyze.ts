@@ -205,6 +205,7 @@ export function toPlayRow(
   return {
     id: playId({
       date: m.date,
+      league: m.game.league,
       kind: m.kind,
       subject: m.kind === "total" ? m.game.id : m.subject,
       stat: m.stat,
