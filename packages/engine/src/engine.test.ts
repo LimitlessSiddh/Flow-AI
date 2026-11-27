@@ -220,3 +220,17 @@ describe("scan → board → price → settle", () => {
     expect(p.signal).not.toBeNull();
   });
 });
+
+describe("research parsing", () => {
+  it("trims long text instead of rejecting the whole result", async () => {
+    const { ResearchResult } = await import("./research/types.js");
+    const r = ResearchResult.parse({
+      availability: { status: "ok", text: "word ".repeat(200) },
+      read: "Short read.",
+      counter: "Short counter.",
+    });
+    expect(r.availability.text.length).toBeLessThanOrEqual(400);
+    expect(r.availability.text.endsWith("…")).toBe(true);
+    expect(r.sources).toEqual([]);
+  });
+});

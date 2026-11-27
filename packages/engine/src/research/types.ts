@@ -1,27 +1,34 @@
 import { z } from "zod";
 
+/** Models sometimes run long. Trim instead of rejecting the whole research result. */
+const text = (max: number) =>
+  z
+    .string()
+    .min(1)
+    .transform((s) => (s.length > max ? s.slice(0, max - 1).replace(/\s+\S*$/, "") + "…" : s));
+
 export const ResearchResult = z.object({
   availability: z.object({
     status: z.enum(["ok", "questionable", "out", "unknown"]),
-    text: z.string().min(1).max(400),
+    text: text(400),
   }),
-  read: z.string().min(1).max(700),
-  counter: z.string().min(1).max(500),
+  read: text(700),
+  counter: text(500),
   context: z
-    .array(z.object({ label: z.string().max(60), recent: z.number(), season: z.number() }))
-    .max(4)
-    .default([]),
+    .array(z.object({ label: text(60), recent: z.number(), season: z.number() }))
+    .default([])
+    .transform((a) => a.slice(0, 4)),
   sources: z
     .array(
       z.object({
-        publisher: z.string().min(1).max(80),
-        title: z.string().min(1).max(200),
+        publisher: text(80),
+        title: text(200),
         url: z.string().url(),
         corroborated: z.boolean().default(false),
       }),
     )
-    .max(6)
-    .default([]),
+    .default([])
+    .transform((a) => a.slice(0, 6)),
 });
 export type ResearchResult = z.infer<typeof ResearchResult>;
 
@@ -61,7 +68,8 @@ Rules:
 - Mark a source "corroborated": true only if another independent source says the same thing.
 - Never invent statistics. If you can't find news, say so plainly and use status "unknown".
 - Plain language, short sentences, for an 18 to 30 year old bettor. No hype, no betting advice.
-- "read" is 2 to 3 sentences explaining why this play showed up. "counter" is 1 to 2 sentences.
+- "read" is 2 to 3 sentences (under 600 characters) explaining why this play showed up.
+- "counter" is 1 to 2 sentences (under 400 characters). "availability.text" is 1 to 2 sentences (under 300 characters).
 
 Reply with ONLY a JSON object, no other text:
 {"availability":{"status":"ok|questionable|out|unknown","text":"..."},"read":"...","counter":"...","context":[{"label":"...","recent":0,"season":0}],"sources":[{"publisher":"...","title":"...","url":"https://...","corroborated":false}]}`;

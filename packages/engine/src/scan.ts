@@ -371,8 +371,12 @@ class Ctx {
       const [h, a] = await Promise.all([this.results(lg, m.game.home), this.results(lg, m.game.away)]);
       return teamEvidence(m, h, a);
     }
-    const team = m.side === m.game.home.code ? m.game.home : m.game.away;
-    return teamEvidence(m, await this.results(lg, team));
+    const home = m.side === m.game.home.code;
+    const [me, opp] = await Promise.all([
+      this.results(lg, home ? m.game.home : m.game.away),
+      this.results(lg, home ? m.game.away : m.game.home),
+    ]);
+    return teamEvidence(m, me, opp);
   }
 }
 

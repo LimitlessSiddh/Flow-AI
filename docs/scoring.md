@@ -28,3 +28,16 @@ Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
 
 A play gets Watch when any of these hold: fewer than 8 games this season, fewer than 7 of the last 10 played,
 a price older than 3 hours, listed questionable, or no news source confirmed the context.
+
+## Team markets (moneyline, spread, total)
+
+Past cover rates against today's line are misleading, because every past game had its own line and opponent. So
+team markets get their form rate from a matchup model in `packages/core/src/matchup.ts`:
+
+- **Team strength** = average margin, half last 10 and half season.
+- **Expected margin** = 0.7 × (team strength − opponent strength) ± home edge (NBA 2.5, NFL 1.5, NHL 0.25).
+- **Expected total** = the average of both teams' game totals, half last 10 and half season.
+- The chance comes from a normal curve around that number (margin spread: NBA 12, NFL 13.5, NHL 2.3 goals;
+  total spread: NBA 18, NFL 13.5, NHL 2.2 goals). It then goes through the same market blend as props.
+
+The Flow Signal for team markets is still recent form against today's number.
