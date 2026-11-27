@@ -1,5 +1,6 @@
 import {
   betValue,
+  blendSignal,
   flowSignal,
   modelProbability,
   summarizeForm,
@@ -138,7 +139,7 @@ export interface Scored {
 export function score(ev: Evidence): Scored {
   const form = summarizeForm(ev.log, ev.compareLine, ev.compareSide);
   const model = ev.teamModel !== undefined ? ev.teamModel : modelProbability(form);
-  return { form, signal: flowSignal(form, ev.compareLine, ev.compareSide), model };
+  return { form, signal: blendSignal(flowSignal(form, ev.compareLine, ev.compareSide), model), model };
 }
 
 export function marketLabel(m: Pick<Market, "kind" | "stat" | "side" | "line" | "subject">): string {

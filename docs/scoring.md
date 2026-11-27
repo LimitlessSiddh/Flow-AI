@@ -12,6 +12,11 @@ Three parts, each mapped to 0..1, weighted and scaled to 100:
 | Lift              | 25%    | Last-10 average against the season average, in standard deviations (capped at ±2) |
 | Cushion           | 25%    | Last-5 average against the line, in standard deviations (capped at ±2)            |
 
+That gives the **form signal**. The Flow Signal on the board then blends in Flow's own chance the play hits
+(the form rate below, or the matchup model for team markets): 60% form signal + 40% model points, where a 50%
+chance is 50 points, 65% is 75 and 80% or more is 100. A hot streak that the model rates as a coin flip can no
+longer reach the top of the board. Neither part uses the price. With no model chance, the signal is form alone.
+
 Tiers: 80+ Hot, 65 to 79 Warm, under 65 Mild. Fewer than 5 games: no signal.
 
 ## Bet value
@@ -40,4 +45,4 @@ team markets get their form rate from a matchup model in `packages/core/src/matc
 - The chance comes from a normal curve around that number (margin spread: NBA 12, NFL 13.5, NHL 2.3 goals;
   total spread: NBA 18, NFL 13.5, NHL 2.2 goals). It then goes through the same market blend as props.
 
-The Flow Signal for team markets is still recent form against today's number.
+The Flow Signal for team markets is recent form against today's number, blended with this model's chance.
