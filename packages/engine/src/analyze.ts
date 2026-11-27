@@ -169,7 +169,7 @@ export function factualRead(m: Market, ev: Evidence, s: Scored): { read: string;
   const parts: string[] = [];
   if (l5)
     parts.push(
-      `${who} ${m.kind === "prop" ? `cleared ${m.line}` : `have ${target}`} in ${l5.hits} of the last 5`,
+      `${who} ${m.kind === "prop" ? (m.side === "Under" ? `stayed under ${m.line}` : `cleared ${m.line}`) : `have ${target}`} in ${l5.hits} of the last 5`,
     );
   if (l10) parts.push(`${l10.hits} of the last 10`);
   let read = parts.length
