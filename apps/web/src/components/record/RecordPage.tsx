@@ -10,8 +10,8 @@ import {
   type RecordView,
   STAKE_DOLLARS,
 } from "@flow/core";
-import { CircleAlert, Download, Eye, Plus } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, CircleAlert, Download, Eye, Plus } from "lucide-react";
+import { Fragment, useState } from "react";
 import { api, type RecordParams } from "../../api/client";
 import { useRecord } from "../../hooks/queries";
 import { load, save } from "../../lib/store";
@@ -201,7 +201,7 @@ function Report({
         </div>
       </section>
 
-      {mine && r.picks.length > 0 && <PickTable picks={r.picks} fmt={fmt} onEdit={onEdit} />}
+      {mine && r.picks.length > 0 && <PickTable picks={r.picks} days={r.byDay} fmt={fmt} onEdit={onEdit} />}
     </>
   );
 }
@@ -343,9 +343,110 @@ const RESULT: Record<string, { text: string; cls: string }> = {
   void: { text: "Void", cls: "na" },
 };
 
-const PICKS_SHOWN = 10;
+const DAYS_LISTED = 10;
 
+/** Your bets, one row per day with that day's totals. Click a day to open its bets; click a bet to edit it. */
 function PickTable({
+  picks,
+  days,
+  fmt,
+  onEdit,
+}: {
+  picks: PickView[];
+  days: RecordReport["byDay"];
+  fmt: OddsFormat;
+  onEdit: (p: PickView) => void;
+}) {
+  const byDate = new Map<string, PickView[]>();
+  for (const p of picks) byDate.set(p.date, [...(byDate.get(p.date) ?? []), p]);
+  const stats = new Map(days.map((d) => [d.date, d]));
+  const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
+  const [open, setOpen] = useState<Set<string>>(() => new Set(dates.slice(0, 1)));
+  const [all, setAll] = useState(false);
+  const shown = all ? dates : dates.slice(0, DAYS_LISTED);
+  const toggle = (d: string) =>
+    setOpen((cur) => {
+      const next = new Set(cur);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+  return (
+    <section className="rec-panel tbl-wrap rec-picks">
+      <h3>
+        Your bets <span className="aside">Click a day to see its bets</span>
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Bets</th>
+            <th>Record</th>
+            <th>Win rate</th>
+            <th>Flow expected</th>
+            <th>Beat the close</th>
+            <th>Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((date) => {
+            const list = byDate.get(date)!;
+            const d = stats.get(date);
+            const isOpen = open.has(date);
+            return (
+              <Fragment key={date}>
+                <tr
+                  className={`day-row${isOpen ? " open" : ""}`}
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  onClick={() => toggle(date)}
+                  onKeyDown={(e) =>
+                    (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle(date))
+                  }
+                >
+                  <td className="lead">
+                    <span className="day-name">
+                      <ChevronRight className="ico day-chev" aria-hidden="true" />
+                      {fmtDay(date)}
+                    </span>
+                  </td>
+                  <td>{list.length}</td>
+                  <td className="lead">{d ? recordText(d.stats) : "—"}</td>
+                  <td>{d ? pct0(d.stats.winRate) : "—"}</td>
+                  <td>{d?.stats.expectedWinRate != null ? pct0(d.stats.expectedWinRate) : "—"}</td>
+                  <td>
+                    {d?.stats.clv.n ? (
+                      `${d.stats.clv.beat} of ${d.stats.clv.n}`
+                    ) : (
+                      <span className="na">—</span>
+                    )}
+                  </td>
+                  <td className={d?.stats.priced ? tone(d.profit) : ""}>
+                    {d?.stats.priced ? fmtMoney(d.profit) : <span className="na">—</span>}
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="day-bets">
+                    <td colSpan={7}>
+                      <DayBets picks={list} fmt={fmt} onEdit={onEdit} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      {dates.length > DAYS_LISTED && (
+        <button className="tb rec-more" onClick={() => setAll((x) => !x)}>
+          {all ? `Show the latest ${DAYS_LISTED} days` : `Show all ${dates.length} days`}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function DayBets({
   picks,
   fmt,
   onEdit,
@@ -354,65 +455,49 @@ function PickTable({
   fmt: OddsFormat;
   onEdit: (p: PickView) => void;
 }) {
-  const [all, setAll] = useState(false);
-  const shown = all ? picks : picks.slice(0, PICKS_SHOWN);
   return (
-    <section className="rec-panel tbl-wrap rec-picks">
-      <h3>
-        Your bets <span className="aside">Click a bet to fix its price or result</span>
-      </h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Bet</th>
-            <th>Day</th>
-            <th>Price</th>
-            <th>Flow's chance</th>
-            <th>Closing price</th>
-            <th>Result</th>
-            <th>Profit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((p) => {
-            const res = p.outcome ? RESULT[p.outcome]! : null;
-            return (
-              <tr
-                key={p.id}
-                tabIndex={0}
-                onClick={() => onEdit(p)}
-                onKeyDown={(e) => e.key === "Enter" && onEdit(p)}
-              >
-                <td className="lead">
-                  {p.kind === "prop" ? `${p.subject} · ` : ""}
-                  {p.market}
-                  <small>{p.league}</small>
-                </td>
-                <td>{fmtDay(p.date)}</td>
-                <td>{p.odds != null ? fmtOdds(p.odds, fmt) : <span className="na">Not entered</span>}</td>
-                <td>{p.estimate != null ? pct0(p.estimate) : <span className="na">—</span>}</td>
-                <td className={p.clv == null ? "" : p.clv > 0 ? "pos" : p.clv < 0 ? "neg" : ""}>
-                  {p.closeOdds != null ? fmtOdds(p.closeOdds, fmt) : <span className="na">—</span>}
-                  {p.closeOdds != null && p.clv == null && <small>other line</small>}
-                </td>
-                <td className={res?.cls ?? "na"}>
-                  {res ? res.text : "Waiting"}
-                  {p.gradedBy === "you" && <small>set by you</small>}
-                </td>
-                <td className={tone(p.profit)}>
-                  {p.profit != null ? fmtMoney(p.profit) : <span className="na">—</span>}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {picks.length > PICKS_SHOWN && (
-        <button className="tb rec-more" onClick={() => setAll((x) => !x)}>
-          {all ? `Show the latest ${PICKS_SHOWN}` : `Show all ${picks.length} bets`}
-        </button>
-      )}
-    </section>
+    <div className="db">
+      <div className="db-h">
+        <span>Bet</span>
+        <span>Price</span>
+        <span>Flow's chance</span>
+        <span>Closing price</span>
+        <span>Result</span>
+        <span>Profit</span>
+      </div>
+      {picks.map((p) => {
+        const res = p.outcome ? RESULT[p.outcome]! : null;
+        return (
+          <button
+            key={p.id}
+            className="db-r"
+            onClick={() => onEdit(p)}
+            title="Fix this bet's price or result"
+          >
+            <span className="db-bet">
+              <b>
+                {p.kind === "prop" ? `${p.subject} · ` : ""}
+                {p.market}
+              </b>
+              <small>{p.league}</small>
+            </span>
+            <span>{p.odds != null ? fmtOdds(p.odds, fmt) : <span className="na">Not entered</span>}</span>
+            <span>{p.estimate != null ? pct0(p.estimate) : <span className="na">—</span>}</span>
+            <span className={p.clv == null ? "" : p.clv > 0 ? "pos" : p.clv < 0 ? "neg" : ""}>
+              {p.closeOdds != null ? fmtOdds(p.closeOdds, fmt) : <span className="na">—</span>}
+              {p.closeOdds != null && p.clv == null && <small>other line</small>}
+            </span>
+            <span className={res?.cls ?? "na"}>
+              {res ? res.text : "Waiting"}
+              {p.gradedBy === "you" && <small>set by you</small>}
+            </span>
+            <span className={tone(p.profit)}>
+              {p.profit != null ? fmtMoney(p.profit) : <span className="na">—</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
