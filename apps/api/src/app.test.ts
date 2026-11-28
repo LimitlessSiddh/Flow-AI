@@ -53,4 +53,29 @@ describe("api", () => {
     const m = await app.inject("/api/meta");
     expect(m.json().settings.oddsFormat).toBe("decimal");
   });
+
+  it("serves an empty record and a CSV", async () => {
+    const r = await app.inject("/api/record?view=all");
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ view: "all", to: "2026-11-27", stage: "none", stats: { plays: 0 } });
+    const csv = await app.inject("/api/record.csv?view=picks");
+    expect(csv.headers["content-type"]).toContain("text/csv");
+    expect(csv.body.split("\n")[0]).toContain("outcome");
+    expect((await app.inject("/api/record?view=nope")).statusCode).toBe(400);
+  });
+
+  it("explains picks it can't log", async () => {
+    const bad = await app.inject({ method: "POST", url: "/api/picks", payload: { date: "2026-11-27" } });
+    expect(bad.statusCode).toBe(400);
+    const none = await app.inject({
+      method: "POST",
+      url: "/api/picks",
+      payload: { date: "2026-11-27", league: "NBA", kind: "moneyline", subject: "Knicks" },
+    });
+    expect(none.statusCode).toBe(422);
+    expect(none.json().error).toContain("No NBA games");
+    const gone = await app.inject({ method: "POST", url: "/api/picks", payload: { playId: "nope" } });
+    expect(gone.statusCode).toBe(422);
+    expect((await app.inject({ method: "DELETE", url: "/api/picks/nope" })).statusCode).toBe(404);
+  });
 });

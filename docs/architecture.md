@@ -26,6 +26,8 @@ Flow runs on your laptop. The frontend and backend are separate apps that share 
 7. **Flags.** Watch labels and evidence quality are recomputed from what's stored.
 
 `pnpm settle` grades a past day: team markets from final scores, props from the player's game log for that date.
+It grades the board, Flow's saved history and your bets. See [record.md](record.md) for how results are kept and
+used.
 
 ## Why these choices
 

@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const json = <T>(name: string) => text(name, { mode: "json" }).$type<T>();
 const now = () => new Date().toISOString();
@@ -116,9 +116,107 @@ export const userState = sqliteTable("user_state", {
   playId: text("play_id").primaryKey(),
   saved: integer("saved", { mode: "boolean" }).notNull().default(false),
   dismissed: integer("dismissed", { mode: "boolean" }).notNull().default(false),
+  /** Legacy: "Track result" before picks existed. Converted to rows in `picks` on startup. */
   tracked: integer("tracked", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull().$defaultFn(now),
 });
+
+/** Closing price: the last price captured before the game started. Shared by history and picks. */
+const closeColumns = () => ({
+  closeOdds: integer("close_odds"),
+  closeLine: real("close_line"),
+  closeBook: text("close_book"),
+  closeAt: text("close_at"),
+});
+
+/** Grading. outcome: win | loss | push | void (player didn't play). */
+const gradeColumns = () => ({
+  outcome: text("outcome"),
+  resultValue: real("result_value"),
+  gradedAt: text("graded_at"),
+});
+
+/**
+ * Every play Flow put on the board, frozen as it stood before its game started.
+ * The board's `plays` table is rewritten by each scan and loses plays that drop off. This table never does:
+ * it is the permanent record used to check Flow's model. Snapshots stop updating once the game starts.
+ */
+export const playHistory = sqliteTable(
+  "play_history",
+  {
+    playId: text("play_id").primaryKey(),
+    date: text("date").notNull(),
+    gameId: text("game_id").notNull(),
+    league: text("league").notNull(),
+    kind: text("kind").notNull(),
+    subject: text("subject").notNull(),
+    subjectId: text("subject_id"),
+    team: text("team"),
+    stat: text("stat"),
+    side: text("side").notNull(),
+    line: real("line"),
+    lineSource: text("line_source").notNull(),
+    startTime: text("start_time").notNull(),
+    signal: integer("signal"),
+    model: real("model"), // Flow's form-based rate, 0..1
+    estimate: real("estimate"), // Flow's chance at the price, 0..1
+    value: real("value"), // bet value, percentage points
+    odds: integer("odds"), // the price Flow judged, American
+    book: text("book"),
+    bookTitle: text("book_title"),
+    priceOrigin: text("price_origin"), // api | manual
+    quality: integer("quality").notNull(),
+    watchCount: integer("watch_count").notNull().default(0),
+    origin: text("origin").notNull(), // scan | manual
+    modelVersion: text("model_version").notNull(),
+    // false when a later pre-game scan dropped it from the board; the record counts on-board plays only
+    onBoard: integer("on_board", { mode: "boolean" }).notNull().default(true),
+    firstSeenAt: text("first_seen_at").notNull(),
+    snapshotAt: text("snapshot_at").notNull(),
+    ...closeColumns(),
+    ...gradeColumns(),
+  },
+  (t) => [index("play_history_date").on(t.date), index("play_history_game").on(t.gameId)],
+);
+
+/**
+ * Bets you placed. Snapshot of the play and Flow's numbers when you logged it, plus the price you got.
+ * A pick can exist without a Flow play (a bet you found yourself), so it doesn't depend on `plays`.
+ */
+export const picks = sqliteTable(
+  "picks",
+  {
+    id: text("id").primaryKey(),
+    playId: text("play_id"), // the Flow play this came from, if any
+    date: text("date").notNull(),
+    league: text("league").notNull(),
+    gameId: text("game_id"),
+    startTime: text("start_time"),
+    kind: text("kind").notNull(),
+    subject: text("subject").notNull(),
+    subjectId: text("subject_id"),
+    team: text("team"),
+    stat: text("stat"),
+    side: text("side").notNull(),
+    line: real("line"),
+    odds: integer("odds"), // the price you got, American. null = you didn't record it
+    book: text("book"),
+    // Flow's numbers when you logged it (null when Flow had no play for this market)
+    signal: integer("signal"),
+    model: real("model"),
+    estimate: real("estimate"),
+    value: real("value"),
+    modelVersion: text("model_version"),
+    source: text("source").notNull(), // board | manual | import
+    note: text("note"),
+    ...closeColumns(),
+    ...gradeColumns(),
+    gradedBy: text("graded_by"), // flow | you
+    createdAt: text("created_at").notNull().$defaultFn(now),
+    updatedAt: text("updated_at").notNull().$defaultFn(now),
+  },
+  (t) => [index("picks_date").on(t.date), uniqueIndex("picks_play").on(t.playId)],
+);
 
 export const results = sqliteTable("results", {
   playId: text("play_id").primaryKey(),
@@ -160,3 +258,7 @@ export type NewPlay = typeof plays.$inferInsert;
 export type PriceRow = typeof prices.$inferSelect;
 export type SourceRow = typeof sources.$inferSelect;
 export type ScanRow = typeof scans.$inferSelect;
+export type HistoryRow = typeof playHistory.$inferSelect;
+export type NewHistory = typeof playHistory.$inferInsert;
+export type PickRow = typeof picks.$inferSelect;
+export type NewPick = typeof picks.$inferInsert;

@@ -253,3 +253,188 @@
 .mybook input.line {
   width: 76px;
 }
+
+/* Page switch in the top bar; the bar holds one more control now, so it packs a little tighter */
+.top .wrap {
+  gap: 14px;
+}
+.top .views {
+  margin-left: 4px;
+}
+.top .tb,
+.top .views button,
+.meta .rec,
+.meta .scan {
+  white-space: nowrap;
+}
+
+/* My record */
+.record {
+  display: grid;
+  gap: 28px;
+  padding-top: 20px;
+  padding-bottom: 40px;
+}
+.rec-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.rec-bar .spacer,
+.dlg-foot .spacer {
+  flex: 1;
+}
+.rec-bar a.tb {
+  text-decoration: none;
+}
+.record > .note + .note {
+  margin-top: -18px;
+}
+.rec-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.rec-stat {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 18px 20px 20px;
+  min-width: 0;
+}
+.rec-stat:first-child {
+  padding-left: 0;
+}
+.rec-stat + .rec-stat {
+  border-left: 1px solid var(--line);
+}
+.rec-stat .lbl {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.rec-stat .big {
+  font-size: 34px;
+}
+.rec-stat .big.pos {
+  color: var(--pos);
+}
+.rec-stat .big.neg {
+  color: var(--neg);
+}
+.rec-stat .sub {
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+.rec-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 48px;
+  align-items: start;
+}
+.rec-grid > section {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+}
+.rec-grid > section > h3 + .exp {
+  margin: -16px 0 0;
+}
+.record td small {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.rec-picks tbody tr {
+  cursor: pointer;
+}
+.rec-picks tbody tr:hover td {
+  background: var(--hover);
+}
+.rec-picks tbody tr:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.rec-more {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+/* Calibration: one row per chance range. Bar = how often plays hit, tick = what Flow said. */
+.calib ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.calib li {
+  display: grid;
+  grid-template-columns: 84px 1fr 72px;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+.calib li:hover {
+  background: var(--hover);
+}
+.calib .c-l {
+  color: var(--fg-2);
+}
+.calib .c-n {
+  text-align: right;
+  color: var(--fg);
+  font-weight: 600;
+}
+.c-track {
+  position: relative;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--miss);
+}
+.c-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.c-tick {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 18px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--fg);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.tb.danger {
+  color: var(--neg);
+}
+.dlg-foot {
+  align-items: center;
+}
+@media (max-width: 1080px) {
+  .rec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .rec-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rec-stat:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .rec-stat:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .top .views button {
+    padding: 5px 9px;
+  }
+}

@@ -22,6 +22,7 @@ import {
   leftOff,
   lte,
   games as gamesT,
+  picks as picksT,
   plays as playsT,
   prices as pricesT,
   results as resultsT,
@@ -30,6 +31,7 @@ import {
   userState,
   type Db,
   type PlayRow,
+  type PickRow,
   type PriceRow,
 } from "@flow/db";
 import { marketLabel } from "./analyze.js";
@@ -63,8 +65,9 @@ function toPrice(r: PriceRow, preferredBook: string): PlayPrice {
 function summarize(
   p: PlayRow,
   prices: PriceRow[],
-  state: { saved: boolean; dismissed: boolean; tracked: boolean } | undefined,
+  state: { saved: boolean; dismissed: boolean } | undefined,
   result: { won: boolean | null; push: boolean; value: number | null } | undefined,
+  pick: PickRow | undefined,
   o: BoardOptions,
 ): PlaySummary {
   const pr = pickPrice(prices, o.bookOrder);
@@ -110,7 +113,13 @@ function summarize(
     origin: p.origin,
     saved: state?.saved ?? false,
     dismissed: state?.dismissed ?? false,
-    tracked: state?.tracked ?? false,
+    pick: pick
+      ? {
+          id: pick.id,
+          odds: pick.odds,
+          outcome: (pick.outcome as NonNullable<PlaySummary["pick"]>["outcome"]) ?? null,
+        }
+      : null,
     result: result ?? null,
   };
 }
@@ -121,12 +130,14 @@ export function getBoard(db: Db, date: string, o: BoardOptions): Board {
   const priceRows = ids.length ? db.select().from(pricesT).where(inArray(pricesT.playId, ids)).all() : [];
   const states = ids.length ? db.select().from(userState).where(inArray(userState.playId, ids)).all() : [];
   const res = ids.length ? db.select().from(resultsT).where(inArray(resultsT.playId, ids)).all() : [];
+  const myPicks = db.select().from(picksT).where(eq(picksT.date, date)).all();
   const plays = playRows.map((p) =>
     summarize(
       p,
       priceRows.filter((r) => r.playId === p.id),
       states.find((s) => s.playId === p.id),
       res.find((r) => r.playId === p.id),
+      myPicks.find((k) => k.playId === p.id),
       o,
     ),
   );
@@ -167,22 +178,20 @@ export function getBoard(db: Db, date: string, o: BoardOptions): Board {
       lost: settled.filter((p) => p.result!.won === false).length,
       pending: plays.filter((p) => !p.result).length,
     },
-    week: trackedRecord(db, addDays(date, -6), date),
+    week: picksRecord(db, addDays(date, -6), date),
   };
 }
 
-/** Your tracked plays' record between two dates (inclusive). */
-export function trackedRecord(db: Db, from: string, to: string) {
+/** Your picks' record between two dates (inclusive). */
+export function picksRecord(db: Db, from: string, to: string) {
   const rows = db
-    .select({ won: resultsT.won, push: resultsT.push })
-    .from(resultsT)
-    .innerJoin(playsT, eq(playsT.id, resultsT.playId))
-    .innerJoin(userState, eq(userState.playId, resultsT.playId))
-    .where(and(gte(playsT.date, from), lte(playsT.date, to), eq(userState.tracked, true)))
+    .select({ outcome: picksT.outcome })
+    .from(picksT)
+    .where(and(gte(picksT.date, from), lte(picksT.date, to)))
     .all();
   return {
-    won: rows.filter((r) => r.won && !r.push).length,
-    lost: rows.filter((r) => r.won === false && !r.push).length,
+    won: rows.filter((r) => r.outcome === "win").length,
+    lost: rows.filter((r) => r.outcome === "loss").length,
   };
 }
 
@@ -192,7 +201,8 @@ export function getPlay(db: Db, id: string, o: BoardOptions): PlayDetail | null 
   const prices = db.select().from(pricesT).where(eq(pricesT.playId, id)).all();
   const state = db.select().from(userState).where(eq(userState.playId, id)).get();
   const result = db.select().from(resultsT).where(eq(resultsT.playId, id)).get();
-  const base = summarize(p, prices, state, result, o);
+  const pick = db.select().from(picksT).where(eq(picksT.playId, id)).get();
+  const base = summarize(p, prices, state, result, pick, o);
   const rank = (b: string) =>
     b === MANUAL_BOOK ? -1 : o.bookOrder.indexOf(b) >= 0 ? o.bookOrder.indexOf(b) : 100;
   return {
@@ -219,11 +229,7 @@ export function getPlay(db: Db, id: string, o: BoardOptions): PlayDetail | null 
   };
 }
 
-export function setPlayState(
-  db: Db,
-  id: string,
-  patch: Partial<{ saved: boolean; dismissed: boolean; tracked: boolean }>,
-) {
+export function setPlayState(db: Db, id: string, patch: Partial<{ saved: boolean; dismissed: boolean }>) {
   const cur = db.select().from(userState).where(eq(userState.playId, id)).get();
   const next = {
     saved: false,

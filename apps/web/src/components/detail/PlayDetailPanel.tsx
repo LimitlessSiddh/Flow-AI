@@ -12,7 +12,7 @@ import {
   TrendingDown,
   X,
 } from "lucide-react";
-import { usePlay, usePlayState } from "../../hooks/queries";
+import { usePlay, usePlayState, useTogglePick } from "../../hooks/queries";
 import { ago, fmtDay, fmtNum, fmtOdds, fmtTime, marketShort, tzAbbr } from "../../lib/format";
 import { resultText } from "../PlayList";
 import { TeamLogo, TeamPair } from "../TeamLogo";
@@ -82,6 +82,7 @@ function Detail({
 }: Parameters<typeof PlayDetailPanel>[0] & { p: PlayDetail }) {
   const g = game(p.gameId);
   const st = usePlayState();
+  const pickM = useTogglePick();
   const team = g && p.team ? (p.team === g.home.code ? g.home : g.away) : undefined;
   const name =
     p.kind === "total"
@@ -126,8 +127,21 @@ function Detail({
   });
   const avail = p.availability;
   const qLabel = ["", "low", "medium", "high"][p.quality] ?? "low";
-  const toggle = (k: "saved" | "tracked", msgOn: string, msgOff: string) =>
+  const toggle = (k: "saved", msgOn: string, msgOff: string) =>
     st.mutate({ id: p.id, patch: { [k]: !p[k] } }, { onSuccess: () => toast(!p[k] ? msgOn : msgOff) });
+  const logBet = () =>
+    pickM.mutate(
+      { playId: p.id, pickId: p.pick?.id ?? null },
+      {
+        onSuccess: () =>
+          toast(
+            p.pick
+              ? "Removed from My Record"
+              : `Logged at ${p.price ? fmtOdds(p.price.odds, fmt) : "no price yet"}. Flow grades it after the game.`,
+          ),
+        onError: (e) => toast(e.message),
+      },
+    );
 
   return (
     <div className="d-in">
@@ -339,14 +353,16 @@ function Detail({
           {p.saved ? <BookmarkCheck className="ico" /> : <Bookmark className="ico" />}
           {p.saved ? "Saved" : "Save"}
         </button>
-        {!past && (
+        {(!past || p.pick) && (
           <button
             className="tb"
-            aria-pressed={p.tracked}
-            onClick={() => toggle("tracked", "Flow will grade this after the game", "Stopped tracking")}
+            aria-pressed={!!p.pick}
+            disabled={pickM.isPending || !!p.pick?.outcome}
+            onClick={logBet}
+            title={p.pick?.outcome ? "Graded. Edit it in My Record." : undefined}
           >
             <ChartLine className="ico" />
-            {p.tracked ? "Tracking" : "Track result"}
+            {p.pick ? "In My Record" : "I bet this"}
           </button>
         )}
         <button className="tb" onClick={() => onDismiss(p.id)}>
@@ -354,7 +370,8 @@ function Detail({
           Dismiss
         </button>
         <span className="fine">
-          Flow doesn't place bets. Tracking records the result so you can see how Flow's picks did.
+          Flow doesn't place bets. "I bet this" saves the play and your {preferredBook} price to My Record, so
+          Flow can grade it.
         </span>
       </div>
     </div>

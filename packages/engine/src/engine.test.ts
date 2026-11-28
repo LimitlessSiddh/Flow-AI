@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { openDb } from "@flow/db";
 import type { Game, LeagueSource, Player, PlayerGame, Quote, TeamGameResult, TeamRef } from "@flow/data";
 import { loadConfig } from "./config.js";
-import { clearManualPrice, getBoard, getPlay, setManualPrice, setPlayState, datesSummary } from "./board.js";
+import { clearManualPrice, getBoard, getPlay, setManualPrice, datesSummary } from "./board.js";
 import { runScan, type ScanDeps } from "./scan.js";
 import { settleDate } from "./settle.js";
 import { addManualPlay, rescorePropAtLine, restoreScanLine } from "./manual.js";
+import { pickFromPlay } from "./record/picks.js";
 import type { ResearchProvider } from "./research/types.js";
 
 const DATE = "2026-11-27";
@@ -197,7 +198,7 @@ describe("scan → board → price → settle", () => {
     expect(after.isPreferredBook).toBe(true);
     expect(after.value!).toBeGreaterThan(prop.value!);
 
-    setPlayState(db, prop.id, { tracked: true });
+    pickFromPlay(db, prop.id, o);
 
     // rescan keeps your Betway price
     await runScan(db, cfg, DATE, deps());
@@ -205,7 +206,8 @@ describe("scan → board → price → settle", () => {
 
     // games go final
     const n = await settleDate(db, deps(true).sources, DATE);
-    expect(n).toBeGreaterThanOrEqual(2);
+    expect(n.plays).toBeGreaterThanOrEqual(2);
+    expect(n.picks).toBe(1);
     const settled = getBoard(db, DATE, o);
     expect(settled.plays.find((p) => p.id === prop.id)!.result).toMatchObject({ won: true, value: 29 });
     expect(settled.plays.find((p) => p.kind === "moneyline")!.result?.won).toBe(true);

@@ -7,7 +7,8 @@ import { HelpPanel, PastBar, ScanBar } from "./components/Bars";
 import { PlayDetailPanel } from "./components/detail/PlayDetailPanel";
 import { DEFAULT_FILTERS, Filters, type FilterState } from "./components/Filters";
 import { GameRail } from "./components/GameRail";
-import { Header } from "./components/Header";
+import { Header, type View } from "./components/Header";
+import { RecordPage } from "./components/record/RecordPage";
 import { filterPlays, PlayList } from "./components/PlayList";
 import { Toast, type ToastMsg } from "./components/Toast";
 import { useBoard, useInvalidate, useMeta, usePlayState } from "./hooks/queries";
@@ -66,6 +67,15 @@ export function App() {
     api.saveSettings({ oddsFormat: x }).catch(() => {});
   };
 
+  const [view, setViewState] = useState<View>(() =>
+    load<string>("flow-view", "board") === "record" ? "record" : "board",
+  );
+  const setView = (v: View) => {
+    setViewState(v);
+    save("flow-view", v);
+    if (v === "record") select(null);
+  };
+
   const [helpOpen, setHelpOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [toast, setToastMsg] = useState<ToastMsg | null>(null);
@@ -119,7 +129,11 @@ export function App() {
     try {
       const r = await api.settle(date);
       invalidate();
-      showToast(r.settled ? `Graded ${r.settled} plays.` : "No final games to grade yet.");
+      showToast(
+        r.settled || r.picks
+          ? `Graded ${r.settled} plays${r.picks ? ` and ${r.picks} of your bets` : ""}.`
+          : "No final games to grade yet.",
+      );
     } catch (e) {
       showToast((e as Error).message);
     } finally {
@@ -173,6 +187,8 @@ export function App() {
   return (
     <>
       <Header
+        view={view}
+        onView={setView}
         date={date ?? today ?? ""}
         today={today ?? ""}
         tz={tz}
@@ -193,57 +209,62 @@ export function App() {
           <div className="wrap">{err.message}</div>
         </div>
       )}
-      {past && board && (
-        <PastBar
-          board={board}
-          onToday={() => today && changeDate(today)}
-          onSettle={settle}
-          settling={settling}
-        />
-      )}
-      {scan && <ScanBar steps={scan.steps} />}
-      {helpOpen && <HelpPanel />}
-      {board && (
-        <GameRail
-          board={board}
-          league={f.league}
-          game={f.game}
-          past={past}
-          tz={tz}
-          onGame={(g) => setFilters(g === "all" ? { game: g } : { game: g, league: "All" })}
-        />
-      )}
-      <main className={`wrap main ${sel ? "open" : ""}`}>
-        <section className="listcol" aria-label="Plays">
-          <Filters f={f} set={setFilters} />
-          {board ? (
-            <PlayList
+      {view === "record" && meta && <RecordPage meta={meta} fmt={fmt} toast={showToast} />}
+      {view === "board" && (
+        <>
+          {past && board && (
+            <PastBar
               board={board}
-              plays={plays}
-              f={f}
-              sel={sel}
+              onToday={() => today && changeDate(today)}
+              onSettle={settle}
+              settling={settling}
+            />
+          )}
+          {scan && <ScanBar steps={scan.steps} />}
+          {helpOpen && <HelpPanel />}
+          {board && (
+            <GameRail
+              board={board}
+              league={f.league}
+              game={f.game}
+              past={past}
+              tz={tz}
+              onGame={(g) => setFilters(g === "all" ? { game: g } : { game: g, league: "All" })}
+            />
+          )}
+          <main className={`wrap main ${sel ? "open" : ""}`}>
+            <section className="listcol" aria-label="Plays">
+              <Filters f={f} set={setFilters} />
+              {board ? (
+                <PlayList
+                  board={board}
+                  plays={plays}
+                  f={f}
+                  sel={sel}
+                  past={past}
+                  fmt={fmt}
+                  tz={tz}
+                  onSelect={(id) => select(sel === id && !mobile() ? null : id)}
+                  emptyHint={emptyHint}
+                />
+              ) : (
+                !err && <div className="empty">Loading the board…</div>
+              )}
+            </section>
+            <PlayDetailPanel
+              id={sel}
+              game={(id) => games.get(id)}
               past={past}
               fmt={fmt}
               tz={tz}
-              onSelect={(id) => select(sel === id && !mobile() ? null : id)}
-              emptyHint={emptyHint}
+              preferredBook={meta?.preferredBook ?? "Betway"}
+              onClose={() => select(null)}
+              onDismiss={dismiss}
+              toast={showToast}
             />
-          ) : (
-            !err && <div className="empty">Loading the board…</div>
-          )}
-        </section>
-        <PlayDetailPanel
-          id={sel}
-          game={(id) => games.get(id)}
-          past={past}
-          fmt={fmt}
-          tz={tz}
-          preferredBook={meta?.preferredBook ?? "Betway"}
-          onClose={() => select(null)}
-          onDismiss={dismiss}
-          toast={showToast}
-        />
-      </main>
+          </main>
+        </>
+      )}
       <footer className="wrap">
         Flow is a research tool. It shows evidence and prices, and you make the call. It never places bets.
         Stats from NHL.com and ESPN. Prices from {meta?.preferredBook ?? "Betway"} when you enter them,

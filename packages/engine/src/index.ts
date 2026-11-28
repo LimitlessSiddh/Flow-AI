@@ -8,3 +8,8 @@ export * from "./manual.js";
 export { MANUAL_BOOK, playId } from "./ids.js";
 export { makeProvider } from "./research/cli.js";
 export type { ResearchProvider, ResearchFacts, ResearchResult } from "./research/types.js";
+export * from "./record/history.js";
+export * from "./record/picks.js";
+export * from "./record/close.js";
+export * from "./record/report.js";
+export * from "./record/jobs.js";
