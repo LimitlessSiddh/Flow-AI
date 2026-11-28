@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Command-line jobs: scan a slate, settle results, and check that every data source is reachable.",
+  "description": "Command-line jobs: scan a slate, grade results, capture closing prices, log picks, and check every data source.",
   "scripts": {
     "scan": "tsx src/cli.ts scan",
     "settle": "tsx src/cli.ts settle",
     "doctor": "tsx src/cli.ts doctor",
     "seed:demo": "DATABASE_PATH=data/demo.db tsx src/seed-demo.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "close": "tsx src/cli.ts close",
+    "record": "tsx src/cli.ts record",
+    "picks": "tsx src/cli.ts picks"
   },
   "dependencies": {
     "@flow/core": "workspace:*",

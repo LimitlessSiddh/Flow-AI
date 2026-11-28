@@ -5,7 +5,11 @@ import { fmtDay, fmtTime } from "../lib/format";
 import { Brand } from "./Brand";
 import { DatePicker } from "./DatePicker";
 
+export type View = "board" | "record";
+
 export function Header(props: {
+  view: View;
+  onView: (v: View) => void;
   date: string;
   today: string;
   tz: string;
@@ -30,32 +34,42 @@ export function Header(props: {
     <header className="top">
       <div className="wrap">
         <Brand />
-        <div className="when">
-          <button
-            ref={setAnchor}
-            className="datebtn"
-            aria-haspopup="dialog"
-            aria-expanded={calOpen}
-            onClick={() => setCalOpen((o) => !o)}
-          >
-            <Calendar className="ico" />
-            <span>
-              {props.date === props.today ? <span className="today-pre">Today · </span> : ""}
-              {fmtDay(props.date)}
-            </span>
-            <ChevronDown className="ico" />
+        <nav className="tabs views" aria-label="Pages">
+          <button aria-pressed={props.view === "board"} onClick={() => props.onView("board")}>
+            Board
           </button>
-        </div>
+          <button aria-pressed={props.view === "record"} onClick={() => props.onView("record")}>
+            My record
+          </button>
+        </nav>
+        {props.view === "board" && (
+          <div className="when">
+            <button
+              ref={setAnchor}
+              className="datebtn"
+              aria-haspopup="dialog"
+              aria-expanded={calOpen}
+              onClick={() => setCalOpen((o) => !o)}
+            >
+              <Calendar className="ico" />
+              <span>
+                {props.date === props.today ? <span className="today-pre">Today · </span> : ""}
+                {fmtDay(props.date)}
+              </span>
+              <ChevronDown className="ico" />
+            </button>
+          </div>
+        )}
         <div className="spacer" />
         <div className="meta">
-          {!isPast && scan?.finishedAt && scan.status === "done" && (
+          {props.view === "board" && !isPast && scan?.finishedAt && scan.status === "done" && (
             <span className="scan">
               Scanned <b>{fmtTime(scan.finishedAt, props.tz)}</b>
             </span>
           )}
           {week && week.won + week.lost > 0 && (
             <span className="rec">
-              Tracked{" "}
+              Your picks{" "}
               <b>
                 {week.won}–{week.lost}
               </b>{" "}
@@ -79,10 +93,12 @@ export function Header(props: {
             1.91
           </button>
         </div>
-        <button className="tb" onClick={props.onAdd} aria-label="Add a play">
-          <Plus className="ico" />
-          <span>Add play</span>
-        </button>
+        {props.view === "board" && (
+          <button className="tb" onClick={props.onAdd} aria-label="Add a play">
+            <Plus className="ico" />
+            <span>Add play</span>
+          </button>
+        )}
         <button className="tb" aria-label="Scores" aria-expanded={props.helpOpen} onClick={props.onHelp}>
           <CircleHelp className="ico" />
           <span>Scores</span>
@@ -94,7 +110,7 @@ export function Header(props: {
         >
           {props.theme === "dark" ? <Sun className="ico" /> : <Moon className="ico" />}
         </button>
-        {!isPast && (
+        {props.view === "board" && !isPast && (
           <button
             className="tb primary"
             id="scanBtn"

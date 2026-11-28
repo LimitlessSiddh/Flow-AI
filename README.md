@@ -58,14 +58,17 @@ Odds show as American by default. Switch to decimal with the `-110 | 1.91` toggl
 
 ## Everyday commands
 
-| Command                                                     | What it does                                                         |
-| ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| `pnpm dev`                                                  | Run the API and the board together                                   |
-| `pnpm scan [YYYY-MM-DD] [--no-research] [--league NBA,NHL]` | Build the board for a day (default today)                            |
-| `pnpm settle [YYYY-MM-DD]`                                  | Grade a day's plays once games are final (default yesterday)         |
-| `pnpm health`                                               | Check every data source and your research tool                       |
-| `pnpm check`                                                | Type check, lint and test everything                                 |
-| `pnpm --filter @flow/worker seed:demo`                      | Fill `data/demo.db` with made-up games, for UI work without internet |
+| Command                                                     | What it does                                                               |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `pnpm dev`                                                  | Run the API and the board together                                         |
+| `pnpm scan [YYYY-MM-DD] [--no-research] [--league NBA,NHL]` | Build the board for a day (default today)                                  |
+| `pnpm settle [YYYY-MM-DD]`                                  | Grade a day's plays and your bets once games are final (default yesterday) |
+| `pnpm record`                                               | Print your record and Flow's record                                        |
+| `pnpm picks import <file.json>`                             | Log a batch of bets from a file                                            |
+| `pnpm close`                                                | Save closing prices for games starting soon                                |
+| `pnpm health`                                               | Check every data source and your research tool                             |
+| `pnpm check`                                                | Type check, lint and test everything                                       |
+| `pnpm --filter @flow/worker seed:demo`                      | Fill `data/demo.db` with made-up games, for UI work without internet       |
 
 ## How the code is organized
 
@@ -82,8 +85,15 @@ packages/
 docs/        Architecture, scoring and data source notes
 ```
 
-See [docs/architecture.md](docs/architecture.md) for how a scan works, and [docs/scoring.md](docs/scoring.md) for
-the exact formulas.
+See [docs/architecture.md](docs/architecture.md) for how a scan works, [docs/scoring.md](docs/scoring.md) for
+the exact formulas, and [docs/record.md](docs/record.md) for how results are stored and used to improve Flow.
+
+## My Record
+
+Press **I bet this** on any play (or **Log a bet** on the My record page) to save the bet and your price. Flow
+also saves every play it shows. While `pnpm dev` runs, it grades finished games from the box scores (on startup
+and every hour) and saves closing prices before games start. The My record page shows your record, profit at $10
+a bet, whether Flow's chances are honest, and which bet types win.
 
 ## Ground rules
 

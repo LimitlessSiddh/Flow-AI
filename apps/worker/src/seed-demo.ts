@@ -2,9 +2,9 @@
  * Dev only: fills a separate database with made-up games so you can look at the UI without network access.
  * Usage: DATABASE_PATH=data/demo.db pnpm --filter @flow/worker exec tsx src/seed-demo.ts
  */
-import { localDate, type League } from "@flow/core";
+import { addDays, impliedFromAmerican, localDate, MODEL_VERSION, type League } from "@flow/core";
 import type { Game, LeagueSource, Player, PlayerGame, Quote, TeamGameResult, TeamRef } from "@flow/data";
-import { openDb } from "@flow/db";
+import { openDb, picks as picksT, playHistory } from "@flow/db";
 import { loadConfig, runScan, setPlayState, type ScanDeps } from "@flow/engine";
 
 const cfg = loadConfig();
@@ -226,4 +226,59 @@ const deps: ScanDeps = {
 await runScan(db, { ...cfg, researchTopN: 2 }, date, deps);
 const first = db.query.plays.findFirst();
 if (first) setPlayState(db, (await first)!.id, { saved: true });
+
+// Made-up graded history for the last two weeks, so the My record page has something to show.
+const kinds = ["prop", "prop", "prop", "moneyline", "spread", "total"] as const;
+for (let d = 1; d <= 14; d++) {
+  const day = addDays(date, -d);
+  for (let i = 0; i < 30; i++) {
+    const kind = kinds[i % kinds.length]!;
+    const league = i % 3 === 0 ? "NHL" : "NBA";
+    const model = 0.38 + rnd() * 0.4;
+    const odds = rnd() < 0.5 ? -110 - Math.round(rnd() * 60) : 100 + Math.round(rnd() * 80);
+    const estimate = impliedFromAmerican(odds) + 0.35 * (model - impliedFromAmerican(odds));
+    const outcome = rnd() < estimate ? "win" : "loss";
+    const base = {
+      date: day,
+      league,
+      kind,
+      subject: `Demo ${kind} ${i}`,
+      side: kind === "prop" || kind === "total" ? "Over" : "BOS",
+      line: kind === "moneyline" ? null : 10.5,
+      startTime: `${day}T23:00:00Z`,
+      signal: Math.round(55 + rnd() * 40),
+      model,
+      estimate,
+      value: (estimate - impliedFromAmerican(odds)) * 100,
+      odds,
+      closeOdds:
+        odds < 0
+          ? Math.min(-100, odds + (rnd() < 0.55 ? -8 : 8))
+          : Math.max(100, odds + (rnd() < 0.55 ? -8 : 8)),
+      closeLine: kind === "moneyline" ? null : 10.5,
+      outcome,
+      resultValue: null,
+      gradedAt: `${addDays(day, 1)}T12:00:00Z`,
+    };
+    db.insert(playHistory)
+      .values({
+        ...base,
+        playId: `demo:${day}:${i}`,
+        gameId: `demo-${day}`,
+        lineSource: "book",
+        quality: 2,
+        origin: "scan",
+        modelVersion: MODEL_VERSION,
+        firstSeenAt: `${day}T12:00:00Z`,
+        snapshotAt: `${day}T12:00:00Z`,
+      })
+      .onConflictDoNothing()
+      .run();
+    if (i < 3)
+      db.insert(picksT)
+        .values({ ...base, id: `demo-pick:${day}:${i}`, book: "betway", source: "manual", gradedBy: "flow" })
+        .onConflictDoNothing()
+        .run();
+  }
+}
 console.log(`Seeded demo board for ${date} into ${cfg.databasePath}`);

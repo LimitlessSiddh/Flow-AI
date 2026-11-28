@@ -6,3 +6,4 @@ export * from "./time.js";
 export * from "./api.js";
 export * from "./matchup.js";
 export * from "./lines.js";
+export * from "./record.js";

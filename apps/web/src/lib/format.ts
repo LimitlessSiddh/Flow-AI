@@ -69,3 +69,15 @@ export function compareLine(p: Pick<PlaySummary, "kind" | "line">): number {
   if (p.kind === "spread") return -(p.line ?? 0);
   return p.line ?? 0;
 }
+
+/** "+$12.10", "–$10.00" */
+export function fmtMoney(x: number): string {
+  return `${x >= 0 ? "+" : "–"}$${Math.abs(x).toFixed(2)}`;
+}
+
+/** 0.583 → "58%" */
+export const pct0 = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
+
+/** ROI 0.3 → "+30%" */
+export const signedPct = (x: number | null) =>
+  x == null ? "—" : `${x >= 0 ? "+" : "–"}${Math.abs(Math.round(x * 100))}%`;

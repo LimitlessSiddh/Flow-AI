@@ -31,6 +31,7 @@ import {
   games as gamesT,
   inArray,
   leftOff,
+  picks as picksT,
   plays as playsT,
   prices as pricesT,
   scans,
@@ -56,6 +57,7 @@ import { espnGameLines } from "./espnOdds.js";
 import { estimatedMarkets, pricedKey } from "./estimate.js";
 import { MANUAL_BOOK } from "./ids.js";
 import { minutesOld, pickPrice } from "./prices.js";
+import { snapshotDate } from "./record/history.js";
 import { makeProvider } from "./research/cli.js";
 import type { ResearchProvider } from "./research/types.js";
 
@@ -255,6 +257,8 @@ export async function runScan(
     }
 
     refreshFlags(db, date, bookOrder, deps.now());
+    const kept = snapshotDate(db, date, { bookOrder, preferredBook: cfg.preferredBook }, deps.now());
+    step(`Saved ${kept} plays to Flow's history`);
     db.update(scans)
       .set({
         status: "done",
@@ -460,19 +464,26 @@ function saveBoard(
   db.transaction((tx) => {
     const rows = shown.map((e) => ({ row: toPlayRow(e.m, e.ev, e.s, scanId, "scan"), q: e.q }));
     const keep = new Set(rows.map((r) => r.row.id!));
-    // Drop yesterday's scan plays for this date that didn't come back, unless you saved or tracked them.
+    // Drop earlier scan plays for this date that didn't come back, unless you saved them or logged a pick.
+    // play_history keeps its own copy either way.
     const old = tx
       .select({ id: playsT.id })
       .from(playsT)
       .where(and(eq(playsT.date, date), eq(playsT.origin, "scan")))
       .all();
-    const pinned = new Set(
-      tx
+    const pinned = new Set([
+      ...tx
         .select({ id: userState.playId })
         .from(userState)
         .all()
         .map((r) => r.id),
-    );
+      ...tx
+        .select({ id: picksT.playId })
+        .from(picksT)
+        .where(eq(picksT.date, date))
+        .all()
+        .map((r) => r.id),
+    ]);
     const drop = old.map((o) => o.id).filter((id) => !keep.has(id) && !pinned.has(id));
     if (drop.length) tx.delete(playsT).where(inArray(playsT.id, drop)).run();
 

@@ -1,3 +1,4 @@
+import type { CalibrationBucket, Outcome, RecordStats, SampleStage, TuneResult } from "./record.js";
 import type { Tier, ValueLabel } from "./types.js";
 
 /** The API contract shared by the backend and the frontend. */
@@ -65,7 +66,8 @@ export interface PlaySummary {
   origin: string;
   saved: boolean;
   dismissed: boolean;
-  tracked: boolean;
+  /** your logged bet on this play, if any */
+  pick: { id: string; odds: number | null; outcome: Outcome | null } | null;
   result: { won: boolean | null; push: boolean; value: number | null } | null;
 }
 export interface PlayDetail extends PlaySummary {
@@ -128,4 +130,87 @@ export interface ScanStatus {
   steps: { at: string; text: string; level: string }[];
   oddsCreditsRemaining: number | null;
   playCount: number | null;
+}
+
+/** A bet you logged, as the record page shows it. */
+export interface PickView {
+  id: string;
+  playId: string | null;
+  date: string;
+  league: string;
+  gameId: string | null;
+  startTime: string | null;
+  kind: string;
+  subject: string;
+  team: string | null;
+  stat: string | null;
+  statLabel: string;
+  side: string;
+  line: number | null;
+  market: string;
+  odds: number | null;
+  book: string | null;
+  signal: number | null;
+  tier: Tier | null;
+  /** Flow's chance at your price */
+  estimate: number | null;
+  value: number | null;
+  closeOdds: number | null;
+  closeLine: number | null;
+  closeBook: string | null;
+  /** percentage points; positive = your price beat the close. null when not comparable */
+  clv: number | null;
+  outcome: Outcome | null;
+  resultValue: number | null;
+  gradedBy: "flow" | "you" | null;
+  /** at STAKE_DOLLARS a pick; null when the price is unknown or it isn't graded */
+  profit: number | null;
+  source: string;
+  note: string | null;
+}
+
+export interface RecordSplit {
+  key: string;
+  label: string;
+  stats: RecordStats;
+}
+
+export type RecordView = "picks" | "all";
+
+export interface RecordReport {
+  view: RecordView;
+  from: string | null;
+  to: string;
+  stake: number;
+  stage: SampleStage;
+  stats: RecordStats;
+  /** past their game by hours and still without a result: the data source missed them, check by hand */
+  ungraded: number;
+  /** stats.units x stake */
+  profit: number;
+  byKind: RecordSplit[];
+  byLeague: RecordSplit[];
+  byTier: RecordSplit[];
+  byValue: RecordSplit[];
+  byDay: { date: string; stats: RecordStats; profit: number }[];
+  calibration: { buckets: CalibrationBucket[]; n: number; brier: number | null };
+  /** how far Flow leans on form, and what graded plays say it should be */
+  tuning: TuneResult & { needed: number };
+  picks: PickView[];
+}
+
+export interface PickInput {
+  date: string;
+  league: string;
+  kind: "prop" | "moneyline" | "spread" | "total";
+  /** player name for props; team name or code for team markets and totals */
+  subject: string;
+  stat?: string | null;
+  /** Over or Under for props and totals; ignored for team markets */
+  side?: "Over" | "Under" | null;
+  line?: number | null;
+  /** what you typed: -115, +105 or 1.87 */
+  odds?: string | null;
+  outcome?: Outcome | null;
+  note?: string | null;
 }

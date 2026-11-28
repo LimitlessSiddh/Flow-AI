@@ -1,4 +1,33 @@
-import type { Board, DaySummary, Meta, PlayDetail, ScanStatus } from "@flow/core";
+import type {
+  Board,
+  DaySummary,
+  Meta,
+  Outcome,
+  PickInput,
+  PlayDetail,
+  RecordReport,
+  RecordView,
+  ScanStatus,
+} from "@flow/core";
+
+export interface RecordParams {
+  view: RecordView;
+  from: string | null;
+  league: string | null;
+}
+const recordQs = (p: RecordParams) =>
+  new URLSearchParams({
+    view: p.view,
+    ...(p.from ? { from: p.from } : {}),
+    ...(p.league ? { league: p.league } : {}),
+  }).toString();
+
+export interface PickPatch {
+  odds?: string | null;
+  line?: number | null;
+  outcome?: Outcome | null;
+  note?: string | null;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -32,7 +61,7 @@ export const api = {
   board: (date: string) => req<Board>(`/api/board?date=${date}`),
   dates: (from: string, to: string) => req<DaySummary[]>(`/api/dates?from=${from}&to=${to}`),
   play: (id: string) => req<PlayDetail>(`/api/plays/${encodeURIComponent(id)}`),
-  setState: (id: string, patch: Partial<{ saved: boolean; dismissed: boolean; tracked: boolean }>) =>
+  setState: (id: string, patch: Partial<{ saved: boolean; dismissed: boolean }>) =>
     req<{ ok: true }>(`/api/plays/${encodeURIComponent(id)}/state`, { method: "PATCH", body: json(patch) }),
   setPrice: (id: string, odds: string, line?: number | null) =>
     req<PlayDetail>(`/api/plays/${encodeURIComponent(id)}/price`, {
@@ -53,7 +82,18 @@ export const api = {
   scan: (date: string) =>
     req<{ id: string | null; date: string }>("/api/scan", { method: "POST", body: json({ date }) }),
   scanStatus: (id: string) => req<ScanStatus>(`/api/scan/${id}`),
-  settle: (date: string) => req<{ settled: number }>("/api/settle", { method: "POST", body: json({ date }) }),
+  settle: (date: string) =>
+    req<{ settled: number; picks: number; history: number }>("/api/settle", {
+      method: "POST",
+      body: json({ date }),
+    }),
+  record: (p: RecordParams) => req<RecordReport>(`/api/record?${recordQs(p)}`),
+  recordCsvUrl: (p: RecordParams) => `/api/record.csv?${recordQs(p)}`,
+  pickPlay: (playId: string) => req<{ id: string }>("/api/picks", { method: "POST", body: json({ playId }) }),
+  logPick: (b: PickInput) => req<{ id: string }>("/api/picks", { method: "POST", body: json(b) }),
+  updatePick: (id: string, patch: PickPatch) =>
+    req<{ id: string }>(`/api/picks/${encodeURIComponent(id)}`, { method: "PATCH", body: json(patch) }),
+  deletePick: (id: string) => req<{ ok: true }>(`/api/picks/${encodeURIComponent(id)}`, { method: "DELETE" }),
   saveSettings: (s: Partial<{ oddsFormat: "american" | "decimal"; theme: string }>) =>
     req<{ ok: true }>("/api/settings", { method: "PUT", body: json(s) }),
 };
