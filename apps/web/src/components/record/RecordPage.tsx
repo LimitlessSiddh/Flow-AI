@@ -176,26 +176,32 @@ function Report({
         />
       </section>
 
-      <div className="rec-grid">
-        <section>
+      <div className="rec-pair">
+        <section className="rec-panel">
           <h3>Are Flow's chances honest?</h3>
-          <p className="exp">
-            If Flow says 60%, those plays should hit about 60% of the time. The tick is what Flow said; the
-            bar is what happened.
-          </p>
+          <p className="exp">The bar is how often plays hit. The tick is the chance Flow gave them.</p>
           <Calibration buckets={r.calibration.buckets} />
-          {!mine && <Tuning r={r} />}
         </section>
-        <section>
-          <SplitTable title="By bet type" rows={r.byKind} />
-          <SplitTable title="By sport" rows={r.byLeague} />
-          <SplitTable title="By Flow Signal" rows={r.byTier} />
-          <SplitTable title="By bet value" rows={r.byValue} />
+        <section className="rec-panel">
+          <ProfitByDay days={r.byDay} total={r.profit} unit={unit} />
         </section>
       </div>
+      {!mine && <Tuning r={r} />}
+
+      <section className="rec-panel">
+        <h3>Where Flow wins</h3>
+        <p className="exp">
+          The same {unit}s, split four ways. Profit is at ${r.stake} a {unit}.
+        </p>
+        <div className="rec-splits">
+          <SplitBlock title="Bet type" rows={r.byKind} />
+          <SplitBlock title="Sport" rows={r.byLeague} />
+          <SplitBlock title="Flow Signal" rows={r.byTier} />
+          <SplitBlock title="Bet value" rows={r.byValue} />
+        </div>
+      </section>
 
       {mine && r.picks.length > 0 && <PickTable picks={r.picks} fmt={fmt} onEdit={onEdit} />}
-      {r.byDay.length > 0 && <DayTable days={r.byDay} unit={unit} />}
     </>
   );
 }
@@ -294,42 +300,38 @@ function Tuning({ r }: { r: RecordReport }) {
   );
 }
 
-function SplitTable({ title, rows }: { title: string; rows: RecordSplit[] }) {
-  if (!rows.length) return null;
+function SplitBlock({ title, rows }: { title: string; rows: RecordSplit[] }) {
   return (
-    <div className="tbl-wrap">
-      <h3>{title}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th />
-            <th>Record</th>
-            <th>Win rate</th>
-            <th>Profit</th>
-            <th>ROI</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((x) => (
-            <tr key={x.key}>
-              <td>{x.label}</td>
-              <td className="lead">{recordText(x.stats)}</td>
-              <td>{pct0(x.stats.winRate)}</td>
-              <Money units={x.stats.priced ? x.stats.units : null} />
-              <td className={tone(x.stats.roi)}>{signedPct(x.stats.roi)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="split">
+      <div className="split-h">
+        <span>{title}</span>
+        <span>Record</span>
+        <span>Win</span>
+        <span>Profit</span>
+      </div>
+      {rows.length === 0 && <div className="split-r na">Nothing yet</div>}
+      {rows.map((x) => (
+        <div
+          className="split-r"
+          key={x.key}
+          title={x.stats.roi != null ? `ROI ${signedPct(x.stats.roi)}` : undefined}
+        >
+          <span className="split-l">{x.label}</span>
+          <span className="lead">{recordText(x.stats)}</span>
+          <span>{pct0(x.stats.winRate)}</span>
+          <MoneyText units={x.stats.priced ? x.stats.units : null} />
+        </div>
+      ))}
     </div>
   );
 }
 
-function Money({ units }: { units: number | null }) {
-  if (units == null) return <td className="na">—</td>;
+function MoneyText({ units }: { units: number | null }) {
+  if (units == null) return <span className="na">—</span>;
   const d = Math.round(units * STAKE_DOLLARS * 100) / 100;
-  return <td className={tone(d)}>{fmtMoney(d)}</td>;
+  return <span className={tone(d)}>{fmtMoney(d)}</span>;
 }
+
 const tone = (x: number | null) => (x == null || x === 0 ? "" : x > 0 ? "pos" : "neg");
 const recordText = (s: RecordStats) =>
   `${s.won}–${s.lost}${s.push ? `–${s.push}` : ""}${s.pending ? ` (${s.pending} waiting)` : ""}`;
@@ -341,7 +343,7 @@ const RESULT: Record<string, { text: string; cls: string }> = {
   void: { text: "Void", cls: "na" },
 };
 
-const PICKS_SHOWN = 20;
+const PICKS_SHOWN = 10;
 
 function PickTable({
   picks,
@@ -355,7 +357,7 @@ function PickTable({
   const [all, setAll] = useState(false);
   const shown = all ? picks : picks.slice(0, PICKS_SHOWN);
   return (
-    <section className="tbl-wrap rec-picks">
+    <section className="rec-panel tbl-wrap rec-picks">
       <h3>
         Your bets <span className="aside">Click a bet to fix its price or result</span>
       </h3>
@@ -407,39 +409,70 @@ function PickTable({
       </table>
       {picks.length > PICKS_SHOWN && (
         <button className="tb rec-more" onClick={() => setAll((x) => !x)}>
-          {all ? "Show the latest 20" : `Show all ${picks.length} bets`}
+          {all ? `Show the latest ${PICKS_SHOWN}` : `Show all ${picks.length} bets`}
         </button>
       )}
     </section>
   );
 }
 
-function DayTable({ days, unit }: { days: RecordReport["byDay"]; unit: string }) {
+const DAYS_SHOWN = 30;
+
+/** Daily profit as bars around a zero line: mint above, rose below. Hover a bar for that day's record. */
+function ProfitByDay({
+  days,
+  total: allTotal,
+  unit,
+}: {
+  days: RecordReport["byDay"];
+  total: number;
+  unit: string;
+}) {
+  const shown = days.slice(0, DAYS_SHOWN).reverse();
+  const priced = shown.filter((d) => d.stats.priced > 0);
+  // The headline total comes from the report (core math); only a cut-down window sums its own days.
+  const total = days.length <= DAYS_SHOWN ? allTotal : priced.reduce((t, d) => t + d.profit, 0);
+  const up = Math.max(0, ...priced.map((d) => d.profit));
+  const down = Math.max(0, ...priced.map((d) => -d.profit));
+  const span = up + down || 1;
+  const best = priced.length ? priced.reduce((a, b) => (b.profit > a.profit ? b : a)) : null;
+  const worst = priced.length ? priced.reduce((a, b) => (b.profit < a.profit ? b : a)) : null;
   return (
-    <section className="tbl-wrap rec-days">
-      <h3>By day</h3>
-      <table>
-        <thead>
-          <tr>
-            <th />
-            <th>{unit === "bet" ? "Bets" : "Plays"}</th>
-            <th>Record</th>
-            <th>Win rate</th>
-            <th>Profit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {days.slice(0, 30).map((d) => (
-            <tr key={d.date}>
-              <td>{fmtDay(d.date)}</td>
-              <td>{d.stats.plays}</td>
-              <td className="lead">{recordText(d.stats)}</td>
-              <td>{pct0(d.stats.winRate)}</td>
-              <Money units={d.stats.priced ? d.stats.units : null} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <>
+      <h3>
+        Profit by day
+        {priced.length > 0 && <span className={`aside ${tone(total)}`}>{fmtMoney(total)}</span>}
+      </h3>
+      <p className="exp">
+        {best && worst
+          ? `Best day ${fmtMoney(best.profit)}. Worst day ${fmtMoney(worst.profit)}.`
+          : `Shows up once a ${unit} with a price is graded.`}
+      </p>
+      <div className="pbd" role="img" aria-label={`Profit by day over ${shown.length} days`}>
+        <div className="pbd-plot" style={{ ["--zero" as string]: `${(up / span) * 100}%` }}>
+          {shown.map((d) => {
+            const h = d.stats.priced ? (Math.abs(d.profit) / span) * 100 : 0;
+            return (
+              <span
+                key={d.date}
+                className="pbd-col"
+                title={`${fmtDay(d.date)}: ${recordText(d.stats)}${d.stats.priced ? `, ${fmtMoney(d.profit)}` : ""}`}
+              >
+                <i
+                  className={d.profit >= 0 ? "pos" : "neg"}
+                  style={{ height: `${Math.max(h, d.stats.priced ? 1.5 : 0)}%` }}
+                />
+              </span>
+            );
+          })}
+        </div>
+        {shown.length > 0 && (
+          <div className="pbd-x">
+            <span>{fmtDay(shown[0]!.date)}</span>
+            <span>{fmtDay(shown[shown.length - 1]!.date)}</span>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

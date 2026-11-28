@@ -327,19 +327,155 @@
   font-size: 12.5px;
   color: var(--fg-2);
 }
-.rec-grid {
+/* Every block below the stats is a panel: hairline on top, title, one-line explainer, content. */
+.rec-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  min-width: 0;
+}
+.rec-panel > h3 {
+  margin: 0 0 4px;
+}
+.rec-panel > .exp {
+  margin: 0 0 16px;
+}
+.rec-pair {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 48px;
-  align-items: start;
+  align-items: stretch;
 }
-.rec-grid > section {
+.rec-pair > .rec-panel {
+  border-top: 0;
+  padding-top: 0;
+}
+.rec-picks td:first-child {
+  width: 34%;
+}
+.rec-pair .calib ul {
+  margin-top: 12px;
+}
+
+/* Where Flow wins: four blocks, one column template, so numbers line up across all of them */
+.rec-splits {
   display: grid;
-  gap: 24px;
-  align-content: start;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0 32px;
 }
-.rec-grid > section > h3 + .exp {
-  margin: -16px 0 0;
+.split {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+.split-h,
+.split-r {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 40px 72px;
+  gap: 10px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.split-h {
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-2);
+}
+.split-h span:first-child {
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 13px;
+}
+.split-h span + span,
+.split-r span + span {
+  text-align: right;
+}
+.split-r {
+  height: 38px;
+  font-size: 13.5px;
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--line);
+}
+.split-r:last-child {
+  border-bottom: 0;
+}
+.split-r .lead {
+  color: var(--fg);
+  font-weight: 600;
+}
+.split-l {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.split-r .pos,
+h3 .aside.pos {
+  color: var(--pos);
+}
+.split-r .neg,
+h3 .aside.neg {
+  color: var(--neg);
+}
+h3 .aside.pos,
+h3 .aside.neg {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Profit by day */
+.pbd {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 170px;
+}
+.pbd-plot {
+  position: relative;
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  border-radius: 6px;
+}
+.pbd-plot::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--zero);
+  border-top: 1px solid var(--line-2);
+}
+.pbd-col {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: 3px;
+}
+.pbd-col:hover {
+  background: var(--hover);
+}
+.pbd-col i {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  border-radius: 3px;
+}
+.pbd-col i.pos {
+  bottom: calc(100% - var(--zero));
+  background: var(--pos);
+}
+.pbd-col i.neg {
+  top: var(--zero);
+  background: var(--neg);
+}
+.pbd-x {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
 }
 .record td small {
   display: block;
@@ -419,7 +555,14 @@
   align-items: center;
 }
 @media (max-width: 1080px) {
-  .rec-grid {
+  .rec-splits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 32px;
+  }
+}
+@media (max-width: 860px) {
+  .rec-pair,
+  .rec-splits {
     grid-template-columns: 1fr;
   }
 }
